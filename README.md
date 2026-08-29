@@ -98,3 +98,5 @@ The seed never appears in the generated links, only the signature does.
 
 Ed25519 signing is RFC 8032 implemented in plain BigInt with no dependencies, verified
 against Node's native ed25519 verifier.
+
+![Nasil calisir](diagram.svg)

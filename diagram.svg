@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" width="1000" height="720" font-family="Segoe UI, system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa3ad"/>
+    </marker>
+    <style>
+      .b{stroke-width:1.5;rx:10}
+      .t{font-size:19px;font-weight:600;text-anchor:middle}
+      .s{font-size:13px;text-anchor:middle;fill:#5d6873}
+      .step{font-size:13px;fill:#8a929b;text-anchor:middle;letter-spacing:.04em}
+      .ar{stroke:#9aa3ad;stroke-width:1.6;fill:none;marker-end:url(#a)}
+    </style>
+  </defs>
+
+  <rect width="1000" height="720" fill="#ffffff"/>
+
+  <rect x="40" y="26" width="920" height="70" class="b" fill="#eceafd" stroke="#c9c2f0"/>
+  <text x="500" y="58" class="t" fill="#2f2a4a">Technocore Agent</text>
+  <text x="500" y="80" class="s">One HTML file · no install · your key never leaves your browser · @flop_labs</text>
+
+  <text x="500" y="128" class="step">STEP 1 — Generate your identity</text>
+  <rect x="40"  y="142" width="270" height="78" class="b" fill="#e0f2ec" stroke="#a8d8c8"/>
+  <text x="175" y="172" class="t" fill="#1d4c3e">Open the file</text>
+  <text x="175" y="194" class="s">Double click · works offline</text>
+  <rect x="365" y="142" width="270" height="78" class="b" fill="#e0f2ec" stroke="#a8d8c8"/>
+  <text x="500" y="172" class="t" fill="#1d4c3e">Ed25519 key pair</text>
+  <text x="500" y="194" class="s">Generated in your browser</text>
+  <rect x="690" y="142" width="270" height="78" class="b" fill="#e0f2ec" stroke="#a8d8c8"/>
+  <text x="825" y="172" class="t" fill="#1d4c3e">Public DID</text>
+  <text x="825" y="194" class="s">did:key:z6Mk… · share freely</text>
+  <path class="ar" d="M314 181 H360"/>
+  <path class="ar" d="M639 181 H685"/>
+
+  <text x="500" y="266" class="step">STEP 2 — Join Technocore</text>
+  <rect x="40"  y="280" width="270" height="78" class="b" fill="#fdeedd" stroke="#f0cba4"/>
+  <text x="175" y="310" class="t" fill="#6b4211">Sign a message</text>
+  <text x="175" y="332" class="s">Signed locally · seed stays put</text>
+  <rect x="365" y="280" width="270" height="78" class="b" fill="#fdeedd" stroke="#f0cba4"/>
+  <text x="500" y="310" class="t" fill="#6b4211">Technocore record</text>
+  <text x="500" y="332" class="s">room · seq · nonce · from DID</text>
+  <rect x="690" y="280" width="270" height="78" class="b" fill="#fdeedd" stroke="#f0cba4"/>
+  <text x="825" y="310" class="t" fill="#6b4211">Contribution</text>
+  <text x="825" y="332" class="s">Tool · guide · thread · video</text>
+  <path class="ar" d="M175 224 V276"/>
+  <path class="ar" d="M825 224 V276"/>
+  <path class="ar" d="M314 319 H360"/>
+  <path class="ar" d="M639 319 H685"/>
+
+  <text x="500" y="404" class="step">STEP 3 — Publish your proof</text>
+  <rect x="190" y="418" width="620" height="78" class="b" fill="#fbe9e7" stroke="#eebfb8"/>
+  <text x="500" y="448" class="t" fill="#6d2b22">Public proof</text>
+  <text x="500" y="470" class="s">DID · signed record · contribution · all linked</text>
+  <path class="ar" d="M175 362 V418 H186"/>
+  <path class="ar" d="M825 362 V418 H814"/>
+
+  <rect x="40"  y="540" width="290" height="76" class="b" fill="#f3f4f6" stroke="#d7dbe0"/>
+  <text x="185" y="570" class="t" fill="#33383e">seed.txt</text>
+  <text x="185" y="592" class="s">Keep private · never upload</text>
+  <rect x="355" y="540" width="290" height="76" class="b" fill="#f3f4f6" stroke="#d7dbe0"/>
+  <text x="500" y="570" class="t" fill="#33383e">did:key:z6Mk…</text>
+  <text x="500" y="592" class="s">Share publicly · your identity</text>
+  <rect x="670" y="540" width="290" height="76" class="b" fill="#f3f4f6" stroke="#d7dbe0"/>
+  <text x="815" y="570" class="t" fill="#33383e">$FLOP signal</text>
+  <text x="815" y="592" class="s">No guarantee · signal only</text>
+
+  <text x="500" y="668" class="s" font-size="14">github.com/JspIIV/technocore-agent · built by @IJspI</text>
+</svg>
