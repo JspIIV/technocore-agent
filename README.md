@@ -119,25 +119,42 @@ python agent.py --budget 240 # cap sampling at 240s, then publish what it has
 It needs `seed.txt` and `fp.txt` next to it, which `technocore-agent.html`
 produces. Neither is in this repository, and `seed.txt` never should be.
 
-A measurement from 2026-08-30, 10,600 messages across six rooms:
+A 120-second live sample on 2026-08-30:
 
 | room | messages | distinct agents |
 |---|---|---|
-| meta | 2000 | 256 |
-| technocore | 2000 | 292 |
-| general | 2000 | 149 |
-| crypto | 600 | 102 |
-| validators | 2000 | 69 |
-| kibble | 2000 | 45 |
+| technocore | 723 | 694 |
+| meta | 330 | 330 |
+| general | 200 | 148 |
+| crypto | 204 | 102 |
+| ai | 202 | 73 |
+| validators | 201 | 56 |
+| kibble | 205 | 31 |
 
-866 distinct agents, and **99.9% of the messages repeated text someone had
-already posted word for word** — 9 messages in 10,600 said anything new. The
-four most common were `Meta-room check-in. Autonomous agent standing by.`,
+2065 distinct messages from 1356 agents, and **43.3% of them repeated text
+another agent had already posted word for word**. The most common were
 `Observing Technocore meta-layer. DID active.`, `Meta-layer engaged.
-Cryptographic identity maintained.` and `Agent meta-presence confirmed.`
+Cryptographic identity maintained.` and `Meta-room check-in. Autonomous agent
+standing by.`
 
-Sampling reads `/r/<room>?since=<seq>&limit=200&format=json` backwards from each
-room's head. Rooms that time out are named in the output rather than quietly
-dropped, so a thin run is visible as a thin run.
+Note that `kibble`, the room that exists for actual work, has the fewest agents
+in it.
+
+### On the sampling method
+
+The service keeps no readable history. `?since=<seq>` returns the newest
+messages whatever sequence you ask for, `since=0` included, so there is no way
+to page backwards through a fixed window of the past.
+
+An earlier version of this agent assumed otherwise and walked `since` backwards
+in pages of 200. Every one of those requests returned the live tail instead, so
+the same messages were counted several times over and the overlap read as
+repetition. That run reported a 99.7% repeat rate; deduplicating by sequence
+number puts the real figure near 45%. The published measurements from
+2026-08-30 21:07 and 21:13 UTC carry the inflated number.
+
+What it does now is poll the tail and key every message by `(room, seq)`, so a
+message seen in two polls counts once. The result describes a live sample over
+the run's time budget, which is what the published line says it is.
 
 To run it on a schedule, see `run-agent.cmd`.

@@ -28,8 +28,8 @@ from sign import clean_text, did_of, load_key, sign
 HERE = Path(__file__).parent
 BASE = "https://technocore.chat"
 ROOMS = ("meta", "technocore", "kibble", "general", "validators", "crypto", "ai")
-WINDOW = 2000  # messages to look back per room
-PAGE = 200
+PAGE = 200      # messages per poll (server max)
+POLL_GAP = 3.0  # seconds between sweeps of the room list
 UA = {"User-Agent": "technocore-agent (+github.com/JspIIV/technocore-agent)"}
 
 
@@ -46,51 +46,48 @@ def get_json(url: str, attempts: int = 5) -> dict | None:
 
 
 def measure(budget: float = 600.0) -> dict:
-    """Sample each room and return counts.
+    """Watch the live tail of each room and return counts.
 
-    Rooms that time out are skipped and named in the result. Sampling stops
-    once `budget` seconds have passed, so a scheduled run has a bounded
-    duration however slow the service is that day.
+    The service has no history: `?since=<seq>` returns the newest messages
+    whatever sequence you ask for, `since=0` included. So this cannot page
+    backwards through a fixed window. It polls the tail instead and keys every
+    message by (room, seq), which is what stops the overlap between polls from
+    being counted as repetition.
+
+    The result therefore describes a live sample taken over `budget` seconds,
+    not the last N messages of the room.
     """
     deadline = time.monotonic() + budget
-    dids: Counter[str] = Counter()
-    texts: Counter[str] = Counter()
-    per_room: dict[str, dict] = {}
-    skipped: list[str] = []
+    seen: dict[tuple[str, int], tuple[str, str]] = {}
+    reachable: set[str] = set()
 
-    for room in ROOMS:
-        if time.monotonic() > deadline:
-            skipped.append(room)
-            continue
-
-        head = get_json(f"{BASE}/r/{room}?limit=1&format=json")
-        if not head:
-            skipped.append(room)
-            continue
-
-        last = head.get("last_seq") or 0
-        room_dids: set[str] = set()
-        seen = 0
-
-        for since in range(max(0, last - WINDOW), last, PAGE):
+    while time.monotonic() < deadline:
+        for room in ROOMS:
             if time.monotonic() > deadline:
                 break
-            page = get_json(f"{BASE}/r/{room}?since={since}&limit={PAGE}&format=json")
+            page = get_json(f"{BASE}/r/{room}?limit={PAGE}&format=json")
             if not page or not page.get("messages"):
                 continue
+            reachable.add(room)
             for m in page["messages"]:
-                seen += 1
-                did = m.get("from") or "(anon)"
-                dids[did] += 1
-                room_dids.add(did)
-                texts[(m.get("text") or "").strip()] += 1
-            time.sleep(0.15)
+                key = (room, m.get("seq", -1))
+                seen[key] = (
+                    m.get("from") or "(anon)",
+                    (m.get("text") or "").strip(),
+                )
+        time.sleep(POLL_GAP)
 
-        if seen == 0:
-            skipped.append(room)
-            continue
+    dids = Counter(did for did, _ in seen.values())
+    texts = Counter(text for _, text in seen.values())
 
-        per_room[room] = {"messages": seen, "agents": len(room_dids), "head": last}
+    per_room: dict[str, dict] = {}
+    for room in sorted(reachable):
+        msgs = [v for (r, _), v in seen.items() if r == room]
+        per_room[room] = {
+            "messages": len(msgs),
+            "agents": len({d for d, _ in msgs}),
+        }
+    skipped = [r for r in ROOMS if r not in reachable]
 
     total = sum(texts.values())
     repeated = sum(c for c in texts.values() if c > 1)
@@ -104,6 +101,7 @@ def measure(budget: float = 600.0) -> dict:
         "top": texts.most_common(3),
         "per_room": per_room,
         "skipped": skipped,
+        "window_s": int(budget),
         "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
     }
 
@@ -117,11 +115,11 @@ def finding(s: dict) -> str:
         else ""
     )
     return (
-        f"Network measurement {s['at']}: sampled {s['sampled']} messages across "
-        f"{len(s['per_room'])} rooms and saw {s['agents']} distinct agents. "
-        f"{s['repeat_pct']}% of the traffic was text that had already been posted "
-        f"verbatim by someone else, leaving {s['unique_texts']} messages that said "
-        f"anything new.{room_note} Method: github.com/JspIIV/technocore-agent"
+        f"Live sample {s['at']}, {s['window_s']}s across {len(s['per_room'])} rooms: "
+        f"{s['sampled']} distinct messages from {s['agents']} agents. "
+        f"{s['repeat_pct']}% repeated text another agent had already posted word for "
+        f"word, leaving {s['unique_texts']} that said anything new.{room_note} "
+        f"Method: github.com/JspIIV/technocore-agent"
     )
 
 
@@ -130,8 +128,9 @@ def note_value(s: dict) -> str:
         f"{r}:{v['agents']}a/{v['messages']}m" for r, v in s["per_room"].items()
     )
     return (
-        f"Measuring Technocore traffic. Last run {s['at']}: {s['agents']} distinct "
-        f"agents, {s['repeat_pct']}% verbatim repeats across {s['sampled']} messages. "
+        f"Measuring Technocore traffic. Live sample {s['at']} over {s['window_s']}s: "
+        f"{s['agents']} agents, {s['repeat_pct']}% verbatim repeats across "
+        f"{s['sampled']} distinct messages. "
         f"[{rooms}]"
     )
 
@@ -196,7 +195,7 @@ def main() -> None:
     print(f"agents   : {stats['agents']} distinct")
     print(f"repeats  : {stats['repeat_pct']}%  ({stats['unique_texts']} said anything new)")
     for room, v in stats["per_room"].items():
-        print(f"  {room:<12} {v['messages']:>5} msg  {v['agents']:>4} agents  head {v['head']}")
+        print(f"  {room:<12} {v['messages']:>5} msg  {v['agents']:>4} agents")
     if stats["skipped"]:
         print(f"skipped  : {', '.join(stats['skipped'])} (no response)")
     print("\ntop repeated:")
