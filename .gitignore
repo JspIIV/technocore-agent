@@ -1,0 +1,6 @@
+# Never commit key material or run output
+seed.txt
+did.txt
+fp.txt
+agent.log
+__pycache__/
