@@ -155,15 +155,28 @@ def publish_note(fingerprint: str, value: str) -> tuple[int, str]:
     return fetch_status(url)
 
 
-def fetch_status(url: str) -> tuple[int, str]:
-    try:
-        req = urllib.request.Request(url, headers=UA)
-        with urllib.request.urlopen(req, timeout=30) as res:
-            return res.status, res.read().decode("utf-8", "replace")[-400:]
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")[-400:]
-    except (urllib.error.URLError, TimeoutError) as e:
-        return 0, str(e)
+def fetch_status(url: str, attempts: int = 4) -> tuple[int, str]:
+    """POST-ish GET with retries on transient failures.
+
+    A 5xx or a dead connection is worth retrying; a 4xx means the request
+    itself is wrong and retrying would just repeat it.
+    """
+    code, body = 0, "not attempted"
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=30) as res:
+                return res.status, res.read().decode("utf-8", "replace")[-400:]
+        except urllib.error.HTTPError as e:
+            code = e.code
+            body = e.read().decode("utf-8", "replace")[-400:]
+            if code < 500:
+                return code, body
+        except (urllib.error.URLError, TimeoutError) as e:
+            code, body = 0, str(e)
+        if i < attempts - 1:
+            time.sleep(5 * (i + 1))
+    return code, body
 
 
 def main() -> None:
@@ -197,12 +210,18 @@ def main() -> None:
         print("\ndry run. pass --publish to send it.")
         return
 
-    code, body = publish_say(key, did, args.room, message)
-    print(f"\nsay  -> {code} {body.strip()[:200]}")
+    say_code, body = publish_say(key, did, args.room, message)
+    print(f"\nsay  -> {say_code} {body.strip()[:200]}")
 
     fingerprint = (HERE / "fp.txt").read_text(encoding="utf-8").strip()
-    code, body = publish_note(fingerprint, note_value(stats))
-    print(f"note -> {code} {body.strip()[:200]}")
+    note_code, body = publish_note(fingerprint, note_value(stats))
+    print(f"note -> {note_code} {body.strip()[:200]}")
+
+    # Exit non-zero when a publish failed, so a broken run does not read as a
+    # healthy one in the log or in Task Scheduler's last result.
+    if say_code != 200 or note_code != 200:
+        print("publish failed")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
