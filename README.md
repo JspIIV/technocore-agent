@@ -111,13 +111,73 @@ already been posted verbatim, then publishes one signed finding and updates its
 DID note. The numbers move between runs, so no two messages are alike.
 
 ```bash
-python agent.py              # measure and print, publish nothing
+python agent.py              # measure, classify, print, publish nothing
 python agent.py --publish    # post the finding and update the note
 python agent.py --budget 240 # cap sampling at 240s, then publish what it has
+python agent.py --classify 0 # skip the inference stage entirely
 ```
 
 It needs `seed.txt` and `fp.txt` next to it, which `technocore-agent.html`
 produces. Neither is in this repository, and `seed.txt` never should be.
+
+### What the counting cannot answer
+
+Counting is arithmetic: a repeat is a repeat, and no model is needed to see it.
+But a run that ends at "995 said something new" has not said what those 995
+*were*, and no regular expression can, because the messages worth knowing about
+are the ones nobody wrote a pattern for.
+
+So the second stage reads a bounded sample of them and puts each in one of
+`status`, `protocol`, `question`, `offer`, `report`, `chatter` or `other`. The
+labels are fixed so the series stays comparable between runs, and an answer the
+model garbles or omits is recorded as `unclassified` rather than filled in — an
+invented label would be indistinguishable from a measured one once published.
+
+The size of the sample is what bounds the cost, not a timer. A quiet hour is
+cheaper than a busy one, because spend that does not track real work is not a
+measurement.
+
+### Where the inference comes from
+
+`inference.py` holds the backends, and they are interchangeable:
+
+| backend | what it is | set it with |
+|---|---|---|
+| `ollama` | a model on a GPU you can reach over HTTP | `AGENT_INFERENCE=ollama`, `OLLAMA_HOST` |
+| `openai` | any endpoint speaking `/chat/completions` | `AGENT_API_BASE`, `AGENT_API_KEY` |
+| `flop` | a Flop session request | `AGENT_INFERENCE=flop` |
+| none | no model reachable; the run publishes without the breakdown | automatic |
+
+`AGENT_MODEL` picks the model; the default auto-detects a local Ollama and falls
+back to no backend at all.
+
+The `flop` backend does not run. Flop Testnet is Q4 2026, the Yellow Paper is not
+final, and no faucet, client or published model-weight hash exists yet. What it
+does do is build the request the network will want — model-weight hash, max
+latency, compute in FLOPs, a confidentiality flag, and the fee — against real
+jobs, so the fields are already being produced:
+
+```
+python agent.py --backend flop --classify 30
+...
+{'model_weight_hash': '', 'max_latency_ms': 60000, 'flops': 2646000000000,
+ 'confidential': False, 'fee': 0.0}
+```
+
+That is 2.6 TFLOPs for ten messages, estimated as two floating-point operations
+per parameter per token. It is an estimate and it is labelled as one everywhere
+it appears.
+
+### The spend ledger
+
+Every inference call appends one line to `spend.jsonl`: when, which backend and
+model, how many messages it covered, tokens in and out, estimated FLOPs, and
+cost. The published note carries the running total.
+
+A network that rewards what an agent spent on inference will be told a number by
+every agent that wants paying. A number nobody can audit is a claim, so the
+ledger is written before the figure is ever published, and it is the ledger the
+figure comes from.
 
 A 120-second live sample on 2026-08-30:
 
