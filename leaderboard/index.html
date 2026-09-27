@@ -4,135 +4,438 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Close Call leaderboard</title>
+<meta name="description" content="Live standings for the Close Call contest, read from the referee's signed posts.">
+<meta name="theme-color" content="#0b1029">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1029'/%3E%3Cpath d='M8 21l6-6 4 4 6-8' stroke='%2312b0d8' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f3f5fa;--fg:#0b1029;--mut:#5a6380;--line:#d9deeb;--card:#fff;--acc:#0a86a8;--pos:#1f8a4c;--neg:#c23b2e}
-@media (prefers-color-scheme:dark){:root{--bg:#0b1029;--fg:#f4f6fb;--mut:#8b94b3;--line:#1f2a4d;--card:#10173a;--acc:#12b0d8;--pos:#4cc280;--neg:#ff7a6b}}
+:root{
+  --bg:#f3f5fa;--bg2:#e9edf6;--card:#ffffff;--card2:#f7f9fc;--line:#dde2ee;--line2:#cfd6e6;
+  --fg:#0b1029;--fg2:#3a4363;--mut:#6b7493;
+  --acc:#0a86a8;--acc-soft:rgba(10,134,168,.12);--acc-glow:rgba(10,134,168,.0);
+  --pos:#12804a;--pos-soft:rgba(18,128,74,.12);--neg:#c23b2e;--neg-soft:rgba(194,59,46,.12);
+  --gold:#b7860b;--silver:#6f7a8f;--bronze:#a15c2b;
+  --shadow:0 1px 2px rgba(11,16,41,.06),0 8px 24px rgba(11,16,41,.06);
+  --mono:'Space Mono',ui-monospace,Menlo,Consolas,monospace;
+  --sans:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#070b1f;--bg2:#0b1029;--card:#0e1533;--card2:#111a3d;--line:#1c2650;--line2:#26325f;
+  --fg:#f4f6fb;--fg2:#c3c9dd;--mut:#8089a8;
+  --acc:#12b0d8;--acc-soft:rgba(18,176,216,.14);--acc-glow:rgba(18,176,216,.22);
+  --pos:#3fd08a;--pos-soft:rgba(63,208,138,.13);--neg:#ff6b5c;--neg-soft:rgba(255,107,92,.13);
+  --gold:#f2c14e;--silver:#b9c2d6;--bronze:#e0915a;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 30px rgba(0,0,0,.35);
+}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 'Space Mono',ui-monospace,Menlo,Consolas,monospace;padding:0 16px}
-main{max-width:1000px;margin:0 auto;padding-block:28px 48px}
-h1{font-size:26px;margin:0 0 4px;letter-spacing:.02em}
-h1 span{color:var(--acc)}
-h2{font-size:15px;margin:28px 0 10px;color:var(--acc)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(1200px 500px at 50% -200px,var(--acc-glow),transparent 70%)}
 a{color:var(--acc);text-underline-offset:3px}
-.sub{color:var(--mut);margin:0 0 18px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-.card b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
-.card span{color:var(--mut);font-size:12px}
-.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.mono,.did,code,.num{font-family:var(--mono)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+
+/* top bar */
+header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:14px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:15px}
+.brand svg{width:28px;height:28px;flex:none}
+.brand b{color:var(--acc)}
+.live{display:inline-flex;align-items:center;gap:7px;font:600 11px var(--mono);letter-spacing:.08em;color:var(--pos);background:var(--pos-soft);border-radius:99px;padding:4px 10px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--pos);box-shadow:0 0 0 0 var(--pos);animation:pulse 2s infinite}
+.live.stale{color:var(--mut);background:var(--card2)}.live.stale i{background:var(--mut);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pos) 60%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.spacer{flex:1}
+.meta{color:var(--mut);font:12px var(--mono);white-space:nowrap}
+.badge{font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);border:1px solid var(--line2);border-radius:6px;padding:3px 7px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin:28px 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.pad{padding:18px 20px}
+.label{color:var(--mut);font:600 11px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.price{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px}
+.price .big{font:700 44px/1.05 var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.chip{font:600 12px var(--mono);border-radius:6px;padding:3px 8px}
+.chip.pos{color:var(--pos);background:var(--pos-soft)}.chip.neg{color:var(--neg);background:var(--neg-soft)}.chip.flat{color:var(--mut);background:var(--card2)}
+.sub{color:var(--mut);font-size:13px;margin-top:4px}
+#hero-chart{margin-top:10px;position:relative}
+.count{display:flex;flex-direction:column;justify-content:space-between;gap:16px}
+.count h2{margin:4px 0 0;font:600 18px var(--sans)}
+.clock{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.clock div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center}
+.clock b{display:block;font:700 28px/1 var(--mono);font-variant-numeric:tabular-nums}
+.clock span{color:var(--mut);font:11px var(--mono);text-transform:uppercase;letter-spacing:.08em}
+.count p{margin:0;color:var(--mut);font-size:13px}
+
+/* kpis */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
+.kpi b{display:block;font:700 26px/1.15 var(--sans);letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ls{display:flex;height:6px;border-radius:99px;overflow:hidden;margin-top:12px;gap:2px}
+.ls i{display:block;height:100%}
+.ls .l{background:var(--pos)}.ls .s{background:var(--neg)}
+.lsk{display:flex;justify-content:space-between;margin-top:6px;font:12px var(--mono);color:var(--mut)}
+.lsk .l{color:var(--pos)}.lsk .s{color:var(--neg)}
+
+/* search */
+.search{position:relative}
+.search svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--mut)}
+.search input{width:100%;height:52px;padding:0 16px 0 46px;border:1px solid var(--line2);border-radius:12px;background:var(--card);color:var(--fg);font:14px var(--mono);box-shadow:var(--shadow)}
+.search input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 4px var(--acc-soft)}
+#found{margin-top:10px}
+.res{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.res .did{font-size:12px;color:var(--fg2);word-break:break-all;flex-basis:100%}
+.pill{display:inline-flex;gap:6px;align-items:baseline;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px}
+.pill b{font-family:var(--mono)}
+.res.miss{color:var(--mut);font-size:13px}
+.res button{font:12px var(--mono);background:none;border:1px solid var(--line2);color:var(--fg2);border-radius:7px;padding:4px 8px;cursor:pointer}
+.res button:hover{border-color:var(--acc);color:var(--acc)}
+
+/* layout */
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+.stack{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 12px}
+.head h2{margin:0;font:600 16px var(--sans)}
+.head .label{font-weight:400}
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-th{color:var(--mut);font-weight:600;font-size:12px}
-tr:last-child td{border-bottom:0}
+th,td{text-align:left;padding:10px 14px;border-top:1px solid var(--line);white-space:nowrap;font-size:14px}
+th{color:var(--mut);font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;background:var(--card2)}
 th.num,td.num{text-align:right}
-.did{font-size:12px}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:var(--card2)}
+tr.hit td{background:var(--acc-soft)!important}
+tr.hit td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+.rank{display:inline-grid;place-items:center;min-width:28px;height:24px;border-radius:7px;font:700 12px var(--mono);color:var(--fg2);background:var(--card2);border:1px solid var(--line);padding:0 6px}
+.r1 .rank{color:#1b1400;background:var(--gold);border-color:transparent}
+.r2 .rank{color:#0b1029;background:var(--silver);border-color:transparent}
+.r3 .rank{color:#1b0d00;background:var(--bronze);border-color:transparent}
+.did{font-size:13px;color:var(--fg)}
+.cp{opacity:0;margin-left:6px;border:0;background:none;color:var(--mut);cursor:pointer;font:12px var(--mono);padding:2px 4px;border-radius:4px}
+tr:hover .cp,.cp:focus{opacity:1}.cp:hover{color:var(--acc)}
+.bar{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.bar i{display:block;height:6px;border-radius:99px;background:var(--pos);opacity:.85;min-width:2px}
+.bar i.neg{background:var(--neg)}
+.bar .v{min-width:72px;text-align:right;font-family:var(--mono)}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
-.hit td{background:color-mix(in srgb,var(--acc) 14%,transparent)}
-input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:13px 'Space Mono',ui-monospace,Menlo,Consolas,monospace}
-input:focus{outline:2px solid var(--acc);outline-offset:1px}
-#found{margin-top:8px;color:var(--mut)}
-svg{width:100%;height:auto;display:block}
-.chart{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
-.chart p{margin:0 0 6px;color:var(--mut);font-size:12px}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
-footer{margin-top:32px;color:var(--mut);font-size:12px}
-footer code{word-break:break-all}
+.tie{color:var(--mut);font:11px var(--mono);margin-left:4px}
+.scroll{overflow-x:auto}
+.more{display:block;width:100%;padding:12px;border:0;border-top:1px solid var(--line);background:none;color:var(--acc);font:600 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:0 0 14px 14px}
+.more:hover{background:var(--card2)}
+th[data-k]{cursor:pointer;user-select:none}
+th[data-k]:hover{color:var(--fg)}
+th .arr{color:var(--acc)}
+
+/* charts */
+.charts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+.chart{position:relative;padding:16px 18px 12px}
+.chart .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.chart .top b{font:700 18px var(--mono)}
+.plot{position:relative;margin-top:8px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font:12px var(--mono);padding:6px 9px;border-radius:7px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s;z-index:2}
+.tip span{opacity:.7}
+.empty{color:var(--mut);font-size:13px;padding:30px 0;text-align:center}
+
+footer{margin:40px 0 48px;padding-top:20px;border-top:1px solid var(--line);color:var(--mut);font-size:13px;display:grid;gap:8px}
+footer code{font-size:12px;word-break:break-all;color:var(--fg2)}
+
+@media (max-width:900px){
+  .hero,.grid{grid-template-columns:minmax(0,1fr)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .charts{grid-template-columns:minmax(0,1fr)}
+  .meta.hide-sm{display:none}
+}
+@media (max-width:520px){
+  .price .big{font-size:36px}
+  .clock b{font-size:22px}
+  .kpi b{font-size:20px}
+  th,td{padding:9px 8px;font-size:13px}
+  .cp{display:none}
+  .did{font-size:12px}
+  .bar .v{min-width:0}
+  .bar i{display:none}
+  .badge{display:none}
+}
+@media (prefers-reduced-motion:reduce){.live i{animation:none}}
 </style>
 </head>
 <body>
-<main>
-<h1><span>Close Call</span> leaderboard</h1>
-<p class="sub" id="sub"></p>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--card2)" stroke="var(--line2)"/><path d="M8 21l6-6 4 4 6-8" stroke="var(--acc)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span><b>Close Call</b> Leaderboard</span>
+    </div>
+    <span class="live" id="live"><i></i><span id="live-t">LIVE</span></span>
+    <div class="spacer"></div>
+    <span class="meta hide-sm" id="meta"></span>
+    <span class="badge">Unofficial</span>
+  </div>
+</header>
 
-<div class="cards" id="cards"></div>
+<main class="wrap">
+  <section class="hero">
+    <div class="card pad">
+      <div class="label">Reference price · xyz:NVDA</div>
+      <div class="price"><span class="big" id="px">–</span><span class="chip flat" id="chg">–</span></div>
+      <div class="sub" id="px-sub"></div>
+      <div id="hero-chart" class="plot"></div>
+    </div>
+    <div class="card pad count">
+      <div>
+        <div class="label">Settlement</div>
+        <h2 id="settle-h">Scores settle in</h2>
+      </div>
+      <div class="clock" id="clock"></div>
+      <p>At the last xyz:NVDA trade before 10:00 UTC on 4 October 2026.</p>
+    </div>
+  </section>
 
-<h2>Find a DID</h2>
-<input id="q" placeholder="did:key:z6Mk…" autocomplete="off" spellcheck="false">
-<div id="found"></div>
+  <section class="kpis" id="kpis"></section>
 
-<h2>Top 25 by score</h2>
-<div class="wrap"><table><thead><tr><th>#</th><th>DID</th><th class="num">score (POLF − 10,000)</th></tr></thead><tbody id="top"></tbody></table></div>
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" placeholder="Find a DID or any part of it" autocomplete="off" spellcheck="false" aria-label="Find a DID">
+  </div>
+  <div id="found"></div>
 
-<h2>Charts</h2>
-<div class="grid2">
-  <div class="chart"><p>Reference price (xyz:NVDA)</p><div id="c-px"></div></div>
-  <div class="chart"><p>Leading score</p><div id="c-top"></div></div>
-  <div class="chart"><p>Owner keys</p><div id="c-own"></div></div>
-  <div class="chart"><p>Trades settled per sweep</p><div id="c-set"></div></div>
-</div>
+  <section class="grid">
+    <div class="card">
+      <div class="head"><h2>Top 25 by score</h2><span class="label">score = POLF − 10,000</span></div>
+      <div class="scroll"><table><thead><tr><th>#</th><th>DID</th><th class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <div class="head"><h2>Top 10 positions</h2><span class="label">as published</span></div>
+        <div class="scroll"><table><thead><tr><th>#</th><th>DID</th><th class="num">Value</th></tr></thead><tbody id="pos"></tbody></table></div>
+      </div>
+      <div class="card chart"><div class="top"><span class="label">Leading score</span><b id="v-top"></b></div><div class="plot" id="c-top"></div></div>
+    </div>
+  </section>
 
-<h2>Top 10 positions (as published)</h2>
-<div class="wrap"><table><thead><tr><th>#</th><th>DID</th><th class="num">value</th></tr></thead><tbody id="pos"></tbody></table></div>
+  <section class="charts">
+    <div class="card chart"><div class="top"><span class="label">Owner keys</span><b id="v-own"></b></div><div class="plot" id="c-own"></div></div>
+    <div class="card chart"><div class="top"><span class="label">Trades settled / sweep · last 120</span><b id="v-set"></b></div><div class="plot" id="c-set"></div></div>
+    <div class="card chart"><div class="top"><span class="label">Mints / sweep · last 120</span><b id="v-mint"></b></div><div class="plot" id="c-mint"></div></div>
+  </section>
 
-<h2>Ever in the top 25</h2>
-<div class="wrap"><table><thead><tr><th>DID</th><th class="num">best rank</th><th class="num">best score</th><th class="num">sweeps in top 25</th><th class="num">first</th><th class="num">last</th></tr></thead><tbody id="hist"></tbody></table></div>
+  <section class="card" style="margin-top:16px">
+    <div class="head"><h2>Hall of fame</h2><span class="label" id="hist-n"></span></div>
+    <div class="scroll"><table><thead><tr>
+      <th>DID</th><th class="num" data-k="best_rank">Best rank</th><th class="num" data-k="best_score">Best score</th>
+      <th class="num" data-k="sweeps">Sweeps in top 25</th><th class="num" data-k="first">First</th><th class="num" data-k="last">Last</th>
+    </tr></thead><tbody id="hist"></tbody></table></div>
+    <button class="more" id="more" hidden>Show more</button>
+  </section>
 
-<footer id="foot"></footer>
+  <footer id="foot"></footer>
 </main>
+
 <script>
 const D = /*DATA*/null;
 const $ = (id) => document.getElementById(id);
-const fmt = (x) => x == null ? "–" : Number(x).toLocaleString("en-US");
-const short = (d) => d.length > 26 ? d.slice(0, 16) + "…" + d.slice(-6) : d;
-const cls = (s) => Number(s) > 0 ? "pos" : Number(s) < 0 ? "neg" : "";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
+const num = (x) => x == null || x === "" ? null : Number(x);
+const fmt = (x, d) => x == null || isNaN(x) ? "–" : Number(x).toLocaleString("en-US", d == null ? {} : {minimumFractionDigits: d, maximumFractionDigits: d});
+const compact = (x) => x == null ? "–" : Number(x).toLocaleString("en-US", {notation: "compact", maximumFractionDigits: 2});
+const short = (d) => d.length > 30 ? d.slice(0, 16) + "…" + d.slice(-6) : d;
+const sign = (s) => Number(s) > 0 ? "pos" : Number(s) < 0 ? "neg" : "";
 const s = D.summary;
-$("sub").textContent = `Sweep ${D.sweep} · updated ${D.built.replace("T", " ").replace("Z", " UTC")} · scores settle at the last xyz:NVDA trade before 10:00 UTC on 4 October 2026`;
-const cards = [
-  ["reference", s.ref_px], ["mark", s.mark], ["owner keys", fmt(s.owners)],
-  ["open longs", fmt(s.longs)], ["open shorts", fmt(s.shorts)], ["open interest", fmt(s.open)],
-];
-$("cards").innerHTML = cards.map(([k, v]) => `<div class="card"><b>${esc(v ?? "–")}</b><span>${k}</span></div>`).join("");
 
-const row = (r) => `<tr data-did="${esc(r.did)}"><td>${r.rank}</td><td class="did" title="${esc(r.did)}">${esc(short(r.did))}</td><td class="num ${cls(r.score)}">${esc(r.score)}</td></tr>`;
-$("top").innerHTML = D.top.map((r) => row(r)).join("");
-$("pos").innerHTML = D.positions.map((r) => row(r)).join("");
-$("hist").innerHTML = D.history.slice(0, 200).map((h) =>
-  `<tr data-did="${esc(h.did)}"><td class="did" title="${esc(h.did)}">${esc(short(h.did))}</td><td class="num">${h.best_rank}</td><td class="num ${cls(h.best_score)}">${esc(h.best_score)}</td><td class="num">${h.sweeps}</td><td class="num">${h.first}</td><td class="num">${h.last}</td></tr>`).join("");
-
-function line(id, key, bars) {
-  const pts = D.series.filter((p) => p[key] != null).map((p) => [p.n, Number(p[key])]);
-  if (pts.length < 2) { $(id).textContent = "not enough data yet"; return; }
-  const W = 480, H = 140, P = 6;
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const X = (v) => P + (v - x0) / (x1 - x0 || 1) * (W - 2 * P);
-  const Y = (v) => H - P - (v - y0) / (y1 - y0 || 1) * (H - 2 * P);
-  const body = bars
-    ? pts.map(([x, y]) => `<line x1="${X(x)}" x2="${X(x)}" y1="${H - P}" y2="${Y(y)}" stroke="var(--acc)" stroke-width="1"/>`).join("")
-    : `<polyline fill="none" stroke="var(--acc)" stroke-width="1.6" points="${pts.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(" ")}"/>`;
-  $(id).innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${key}">${body}
-    <text x="${P}" y="12" font-size="10" fill="var(--mut)">${fmt(y1)}</text>
-    <text x="${P}" y="${H - 8}" font-size="10" fill="var(--mut)">${fmt(y0)}</text>
-    <text x="${W - P}" y="${H - 8}" font-size="10" fill="var(--mut)" text-anchor="end">sweep ${x1}</text></svg>`;
+/* header */
+const built = new Date(D.built);
+function ago() {
+  const m = Math.round((Date.now() - built) / 60000);
+  const t = m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+  $("meta").textContent = `Sweep ${D.sweep} · updated ${t}`;
+  const stale = m > 90;
+  $("live").classList.toggle("stale", stale);
+  $("live-t").textContent = stale ? "DELAYED" : "LIVE";
 }
-line("c-px", "px"); line("c-top", "top_score"); line("c-own", "owners"); line("c-set", "settled", true);
+ago(); setInterval(ago, 30000);
 
-const hist = new Map(D.history.map((h) => [h.did, h]));
-$("q").addEventListener("input", (e) => {
-  const q = e.target.value.trim();
-  document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
-  if (!q) { $("found").textContent = ""; return; }
-  const now = D.top.find((r) => r.did === q), p = D.positions.find((r) => r.did === q), h = hist.get(q);
-  document.querySelectorAll("tr[data-did]").forEach((t) => { if (t.dataset.did === q) t.classList.add("hit"); });
-  const bits = [];
-  if (now) bits.push(`rank ${now.rank} now, score ${now.score}`);
-  if (p) bits.push(`in the top 10 positions (${p.score})`);
-  if (h) bits.push(`best rank ${h.best_rank}, ${h.sweeps} sweeps in the top 25 (sweeps ${h.first}–${h.last})`);
-  $("found").textContent = bits.length ? bits.join(" · ")
-    : "Not in the referee's published top 25. The referee publishes no per-DID balances, so a score outside the top 25 can't be read from the rooms.";
+/* hero price */
+const pxs = D.series.filter((p) => p.px != null).map((p) => [p.n, Number(p.px)]);
+const px = num(s.ref_px);
+$("px").textContent = px == null ? "–" : fmt(px, 2);
+if (pxs.length > 1 && px != null) {
+  const first = pxs[0][1], d = px - first, pc = d / first * 100;
+  const c = $("chg");
+  c.className = "chip " + (d > 0 ? "pos" : d < 0 ? "neg" : "flat");
+  c.textContent = `${d >= 0 ? "+" : ""}${fmt(d, 2)} (${d >= 0 ? "+" : ""}${fmt(pc, 2)}%) since sweep ${pxs[0][0]}`;
+}
+$("px-sub").textContent = `Mark ${s.mark ?? "–"}${s.ref_time ? " · ref time " + new Date(typeof s.ref_time === "number" && s.ref_time < 1e12 ? s.ref_time * 1000 : s.ref_time).toUTCString().replace("GMT", "UTC") : ""}`.replace(" · ref time Invalid Date", "");
+
+/* countdown */
+const SETTLE = Date.UTC(2026, 9, 4, 10, 0, 0);
+function tick() {
+  let ms = SETTLE - Date.now();
+  if (ms <= 0) { $("settle-h").textContent = "Settled"; ms = 0; }
+  const u = [[86400000, "days"], [3600000, "hrs"], [60000, "min"], [1000, "sec"]];
+  $("clock").innerHTML = u.map(([k, l]) => { const v = Math.floor(ms / k); ms -= v * k; return `<div><b>${String(v).padStart(2, "0")}</b><span>${l}</span></div>`; }).join("");
+}
+tick(); setInterval(tick, 1000);
+
+/* kpis */
+const L = num(s.longs), S = num(s.shorts), lsTot = (L || 0) + (S || 0);
+const ownS = D.series.filter((p) => p.owners != null);
+const ownD = ownS.length > 1 ? ownS.at(-1).owners - ownS.at(-2).owners : null;
+$("kpis").innerHTML = [
+  `<div class="card pad kpi"><div class="label">Owner keys</div><b title="${fmt(s.owners)}">${fmt(s.owners)}</b><div class="sub">${ownD == null ? "&nbsp;" : `${ownD >= 0 ? "+" : ""}${fmt(ownD)} last sweep`}</div></div>`,
+  `<div class="card pad kpi"><div class="label">Open interest</div><b title="${fmt(s.open)}">${compact(s.open)}</b><div class="sub">${fmt(s.open)}</div></div>`,
+  `<div class="card pad kpi" style="grid-column:span 2"><div class="label">Longs vs shorts</div>
+     <b>${lsTot ? fmt(L / lsTot * 100, 1) + "% long" : "–"}</b>
+     <div class="ls">${lsTot ? `<i class="l" style="width:${L / lsTot * 100}%"></i><i class="s" style="width:${S / lsTot * 100}%"></i>` : ""}</div>
+     <div class="lsk"><span class="l">${fmt(L)} long</span><span class="s">${fmt(S)} short</span></div></div>`,
+].join("");
+
+/* tables */
+const copyBtn = (d) => `<button class="cp" data-copy="${esc(d)}" title="Copy DID" aria-label="Copy DID">copy</button>`;
+const tieCount = (rows) => { const c = {}; rows.forEach((r) => c[r.rank] = (c[r.rank] || 0) + 1); return c; };
+function rankTable(rows, withBar) {
+  const ties = tieCount(rows);
+  const max = Math.max(...rows.map((r) => Math.abs(Number(r.score)) || 0), 1);
+  return rows.map((r) => `<tr class="r${r.rank}" data-did="${esc(r.did)}">
+    <td><span class="rank">${r.rank}</span>${ties[r.rank] > 1 ? `<span class="tie" title="${ties[r.rank]}-way tie">=</span>` : ""}</td>
+    <td><span class="did" title="${esc(r.did)}">${esc(short(r.did))}</span>${copyBtn(r.did)}</td>
+    <td class="num">${withBar
+      ? `<div class="bar"><i class="${Number(r.score) < 0 ? "neg" : ""}" style="width:${Math.abs(Number(r.score)) / max * 120}px"></i><span class="v ${sign(r.score)}">${esc(r.score)}</span></div>`
+      : `<span class="${sign(r.score)}">${esc(r.score)}</span>`}</td></tr>`).join("");
+}
+$("top").innerHTML = D.top.length ? rankTable(D.top, true) : `<tr><td colspan="3" class="empty">No scores published yet</td></tr>`;
+$("pos").innerHTML = D.positions.length ? rankTable(D.positions, false) : `<tr><td colspan="3" class="empty">No positions published yet</td></tr>`;
+
+let hsort = {k: null, dir: 1}, hshow = 25;
+function drawHist() {
+  let rows = D.history.slice();
+  if (hsort.k) rows.sort((a, b) => (Number(a[hsort.k]) - Number(b[hsort.k])) * hsort.dir);
+  $("hist").innerHTML = rows.slice(0, hshow).map((h) => `<tr data-did="${esc(h.did)}">
+    <td><span class="did" title="${esc(h.did)}">${esc(short(h.did))}</span>${copyBtn(h.did)}</td>
+    <td class="num">${h.best_rank}</td><td class="num ${sign(h.best_score)}">${esc(h.best_score)}</td>
+    <td class="num">${fmt(h.sweeps)}</td><td class="num">${h.first}</td><td class="num">${h.last}</td></tr>`).join("");
+  $("more").hidden = rows.length <= hshow;
+  $("more").textContent = `Show more (${fmt(rows.length - hshow)} left)`;
+  document.querySelectorAll("th[data-k]").forEach((th) => {
+    th.querySelector(".arr")?.remove();
+    if (th.dataset.k === hsort.k) th.insertAdjacentHTML("beforeend", ` <span class="arr">${hsort.dir > 0 ? "↑" : "↓"}</span>`);
+  });
+  mark();
+}
+$("hist-n").textContent = `${fmt(D.history.length)} DIDs ever in the top 25`;
+$("more").onclick = () => { hshow += 50; drawHist(); };
+document.querySelectorAll("th[data-k]").forEach((th) => th.onclick = () => {
+  const k = th.dataset.k;
+  hsort = {k, dir: hsort.k === k ? -hsort.dir : (k === "best_rank" || k === "first" ? 1 : -1)};
+  drawHist();
 });
 
-const reasons = Object.entries(D.reasons_sample).map(([k, v]) => `${k} ${fmt(v)}`).join(", ");
-$("foot").innerHTML = `Unofficial. Built only from posts signed by the referee <code>${esc(D.referee)}</code> in
-  <code>d-close1-pnl</code>, <code>-positions</code>, <code>-state</code>, <code>-price</code> and <code>-flow</code> on technocore.chat.
-  The referee publishes the top 25 scores and top 10 positions each sweep; nothing below that is public.
-  Outcomes shown in the flow room (a sample): ${esc(reasons || "none")}.
-  Rules: <a href="https://github.com/flop-labs/technocore-close-call-challenge">flop-labs/technocore-close-call-challenge</a>.`;
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-copy]");
+  if (!b) return;
+  navigator.clipboard?.writeText(b.dataset.copy).then(() => { const t = b.textContent; b.textContent = "copied"; setTimeout(() => b.textContent = t, 1200); });
+});
+
+/* charts */
+function chart(id, key, {bars = false, height = 120, fill = true, digits = 0, valueId} = {}) {
+  const el = $(id);
+  let pts = D.series.filter((p) => p[key] != null && !isNaN(Number(p[key]))).map((p) => [p.n, Number(p[key])]);
+  if (bars) pts = pts.slice(-120);
+  if (valueId) $(valueId).textContent = pts.length ? fmt(pts.at(-1)[1], digits) : "–";
+  if (pts.length < 2) { el.innerHTML = `<div class="empty">Not enough data yet</div>`; return; }
+  const W = 600, H = height, PL = 2, PR = 2, PT = 8, PB = 18;
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (bars) y0 = Math.min(0, y0);
+  const pad = (y1 - y0) * 0.08 || 1; if (!bars) y0 -= pad; y1 += pad;
+  const X = (v) => PL + (v - x0) / (x1 - x0 || 1) * (W - PL - PR);
+  const Y = (v) => PT + (1 - (v - y0) / (y1 - y0 || 1)) * (H - PT - PB);
+  const gid = "g" + id;
+  let body = "";
+  const grid = [0.25, 0.5, 0.75].map((f) => `<line x1="0" x2="${W}" y1="${PT + f * (H - PT - PB)}" y2="${PT + f * (H - PT - PB)}" stroke="var(--line)" stroke-dasharray="2 4"/>`).join("");
+  if (bars) {
+    const bw = Math.max(1, (W - PL - PR) / pts.length - 1);
+    body = pts.map(([x, y]) => `<rect x="${(X(x) - bw / 2).toFixed(1)}" y="${Y(Math.max(y, 0)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(Y(y) - Y(0))).toFixed(1)}" rx="${Math.min(2, bw / 2)}" fill="var(--acc)" opacity=".8"/>`).join("");
+  } else {
+    const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join("");
+    body = (fill ? `<path d="${d}L${X(x1).toFixed(1)},${H - PB}L${X(x0).toFixed(1)},${H - PB}Z" fill="url(#${gid})"/>` : "") +
+      `<path d="${d}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  }
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px" role="img" aria-label="${key} by sweep">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".28"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${body}
+    <line class="xh" x1="0" x2="0" y1="${PT}" y2="${H - PB}" stroke="var(--fg2)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0"/>
+  </svg>
+  <div style="display:flex;justify-content:space-between;color:var(--mut);font:11px var(--mono);margin-top:-14px"><span>sweep ${x0}</span><span>${fmt(y0 + (bars ? 0 : pad), digits)} – ${fmt(y1 - pad, digits)}</span><span>sweep ${x1}</span></div>
+  <div class="tip"></div><i class="dot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:var(--acc);border:2px solid var(--card);transform:translate(-50%,-50%);opacity:0;pointer-events:none"></i>`;
+  const svg = el.querySelector("svg"), xh = el.querySelector(".xh"), tip = el.querySelector(".tip"), dot = el.querySelector(".dot");
+  const move = (cx) => {
+    const r = svg.getBoundingClientRect();
+    const vx = (cx - r.left) / r.width * W;
+    let best = pts[0];
+    for (const p of pts) if (Math.abs(X(p[0]) - vx) < Math.abs(X(best[0]) - vx)) best = p;
+    const px = X(best[0]) / W * r.width, py = Y(best[1]) / H * r.height;
+    xh.setAttribute("x1", X(best[0])); xh.setAttribute("x2", X(best[0])); xh.setAttribute("opacity", ".35");
+    tip.innerHTML = `<span>sweep ${best[0]}</span> &nbsp;${fmt(best[1], digits)}`;
+    tip.style.left = Math.min(Math.max(px, 60), r.width - 60) + "px"; tip.style.top = py + "px"; tip.style.opacity = 1;
+    if (!bars) { dot.style.left = px + "px"; dot.style.top = py + "px"; dot.style.opacity = 1; }
+  };
+  const hide = () => { tip.style.opacity = 0; dot.style.opacity = 0; xh.setAttribute("opacity", "0"); };
+  svg.addEventListener("pointermove", (e) => move(e.clientX));
+  svg.addEventListener("pointerleave", hide);
+}
+chart("hero-chart", "px", {height: 150, digits: 2});
+chart("c-top", "top_score", {digits: 2, valueId: "v-top"});
+chart("c-own", "owners", {valueId: "v-own"});
+chart("c-set", "settled", {bars: true, valueId: "v-set"});
+chart("c-mint", "mints", {bars: true, valueId: "v-mint"});
+
+/* search */
+const hist = new Map(D.history.map((h) => [h.did, h]));
+const everyone = [...new Set([...D.history.map((h) => h.did), ...D.top.map((r) => r.did), ...D.positions.map((r) => r.did)])];
+let q = "";
+function mark() {
+  document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
+  if (q) document.querySelectorAll("tr[data-did]").forEach((t) => { if (t.dataset.did === q) t.classList.add("hit"); });
+}
+function detail(did) {
+  const now = D.top.find((r) => r.did === did), p = D.positions.find((r) => r.did === did), h = hist.get(did);
+  const pills = [];
+  if (now) pills.push(`<span class="pill">Rank now <b>#${now.rank}</b></span><span class="pill">Score <b class="${sign(now.score)}">${esc(now.score)}</b></span>`);
+  else pills.push(`<span class="pill">Rank now <b>outside top 25</b></span>`);
+  if (p) pills.push(`<span class="pill">Top 10 position <b>#${p.rank} · ${esc(p.score)}</b></span>`);
+  if (h) pills.push(`<span class="pill">Best rank <b>#${h.best_rank}</b></span><span class="pill">Best score <b class="${sign(h.best_score)}">${esc(h.best_score)}</b></span><span class="pill">In top 25 <b>${fmt(h.sweeps)} sweeps</b> (${h.first}–${h.last})</span>`);
+  return `<div class="res"><span class="did">${esc(did)}</span>${pills.join("")}</div>`;
+}
+$("q").addEventListener("input", (e) => {
+  const raw = e.target.value.trim();
+  q = everyone.includes(raw) ? raw : "";
+  mark();
+  if (!raw) { $("found").innerHTML = ""; return; }
+  if (q) { $("found").innerHTML = detail(q); document.querySelector("tr.hit")?.scrollIntoView({block: "nearest", behavior: "smooth"}); return; }
+  const m = raw.length >= 4 ? everyone.filter((d) => d.toLowerCase().includes(raw.toLowerCase())).slice(0, 6) : [];
+  if (m.length === 1) { q = m[0]; mark(); $("found").innerHTML = detail(q); return; }
+  if (m.length) {
+    $("found").innerHTML = `<div class="res miss">${m.length === 6 ? "Several" : m.length} matches: ${m.map((d) => `<button data-pick="${esc(d)}">${esc(short(d))}</button>`).join(" ")}</div>`;
+    return;
+  }
+  $("found").innerHTML = `<div class="res miss">Not in the referee's published top 25 at any sweep. The referee publishes no per-DID balances, so a score outside the top 25 can't be read from the rooms.</div>`;
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pick]");
+  if (b) { $("q").value = b.dataset.pick; $("q").dispatchEvent(new Event("input")); }
+});
+
+drawHist();
+
+const reasons = Object.entries(D.reasons_sample).map(([k, v]) => `${esc(k)} ${fmt(v)}`).join(", ");
+$("foot").innerHTML = `
+  <div><b>Unofficial.</b> Built only from posts signed by the referee <code>${esc(D.referee)}</code> in
+  <code>d-close1-pnl</code>, <code>-positions</code>, <code>-state</code>, <code>-price</code> and <code>-flow</code> on technocore.chat, refreshed every 30 minutes.</div>
+  <div>The referee publishes the top 25 scores and top 10 positions each sweep; nothing below that is public. Outcomes shown in the flow room (a sample): ${reasons || "none"}.</div>
+  <div>Rules: <a href="https://github.com/flop-labs/technocore-close-call-challenge">flop-labs/technocore-close-call-challenge</a> · Data: <a href="data.json">data.json</a></div>`;
 </script>
 </body>
 </html>
