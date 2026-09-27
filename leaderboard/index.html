@@ -62,9 +62,11 @@ header .wrap{display:flex;align-items:center;gap:14px;height:60px}
 .toggle[data-mode="light"] .t-l,.toggle[data-mode="dark"] .t-d{background:var(--acc);color:var(--card)}
 
 /* intro */
-.byline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:22px 0 0;font:12px var(--mono);color:var(--mut)}
-.byline a{font-weight:700}
-.intro{margin:10px 0 0;color:var(--mut);font-size:14px;max-width:820px}
+.flop{background:var(--acc);color:var(--card);font:700 12px var(--mono);letter-spacing:.04em}
+.flop .wrap{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px 10px;min-height:32px;padding-top:6px;padding-bottom:6px;text-align:center}
+.flop a{color:inherit}
+.flop span.o{opacity:.8;font-weight:400}
+.intro{margin:22px 0 0;color:var(--mut);font-size:14px;max-width:820px}
 .intro b{color:var(--fg);font-weight:600}
 
 /* hero */
@@ -146,6 +148,15 @@ tbody tr td{transition:background .12s}
 tbody tr:hover td{background:var(--hover)}
 tr.hit td{background:var(--acc-soft)!important}
 tr.podium td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+tr.grp td{background:var(--card2);padding-top:9px;padding-bottom:9px}
+tr.grp .gl{font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+tr.grp .gl b{color:var(--acc)}
+tr.mem td:first-child,tr.grp td:first-child{box-shadow:inset 3px 0 0 var(--line2)}
+tr.g-pod td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+tr.mem td.ind{padding-left:22px}
+tr.showmore td{padding:6px 12px}
+.sm{all:unset;cursor:pointer;color:var(--acc);font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+tr[hidden]{display:none}
 .rank{display:inline-grid;place-items:center;min-width:30px;height:24px;border-radius:7px;font:700 12px var(--mono);color:var(--fg2);background:var(--card2);border:1px solid var(--line);padding:0 6px}
 .rank.lead{color:var(--card);background:var(--acc);border-color:var(--acc)}
 .rank.near{color:var(--acc);border-color:var(--acc)}
@@ -203,6 +214,7 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
 </script>
 </head>
 <body>
+<div class="flop"><div class="wrap"><span>FLOP LABS · <a href="https://github.com/flop-labs/technocore-close-call-challenge">CLOSE CALL CHALLENGE</a></span><span class="o">community leaderboard · not run by Flop</span></div></div>
 <header>
   <div class="wrap">
     <a class="brand" href="#overview">
@@ -223,7 +235,6 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
 
 <main class="wrap">
   <div id="overview">
-    <p class="byline"><span>Community leaderboard for the <a href="https://github.com/flop-labs/technocore-close-call-challenge">Close Call challenge by Flop Labs</a></span><span>·</span><span>not run or endorsed by Flop</span></p>
     <p class="intro"><b>Close Call</b> ranks every key by <b>score = POLF − 10,000</b>, marked against the last xyz:NVDA trade. This page mirrors what the referee publishes each sweep.</p>
     <section class="hero" style="margin-top:16px">
       <div class="card pad">
@@ -270,12 +281,12 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     <div class="sec"><h2 id="board-h">Board</h2><span class="label" style="font-weight:400">click a DID to copy it</span></div>
     <div class="grid">
       <div class="card">
-        <div class="head"><h3>Top 25 by score</h3><span class="label">last 20 sweeps →</span></div>
+        <div class="head"><h3>Published top 25</h3><span class="label" id="top-note"></span></div>
         <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
       </div>
       <div class="card">
-        <div class="head"><h3>Top 10 positions</h3><span class="label" id="pos-note">value as published</span></div>
-        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Value</th></tr></thead><tbody id="pos"></tbody></table></div>
+        <div class="head"><h3>Top 10 positions</h3><span class="label" id="pos-note">unit as posted by the referee</span></div>
+        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Published value</th></tr></thead><tbody id="pos"></tbody></table></div>
       </div>
     </div>
 
@@ -408,6 +419,36 @@ function rankRows(rows, withSpark) {
     <td>${didCell(r.did)}</td>
     <td class="num"><div class="bar">${withSpark ? spark(r.trail) : ""}<span class="v ${sgn(r.score)}">${esc(r.score)}</span></div></td></tr>`).join("");
 }
+/* Top 25: equal scores are drawn as one labelled group instead of repeated ranks */
+const OPEN = 6;
+function groupRows(rows) {
+  const groups = [];
+  rows.forEach((r) => { const g = groups.at(-1); g && g.rank === r.rank ? g.rows.push(r) : groups.push({rank: r.rank, score: r.score, rows: [r]}); });
+  const tieGroups = groups.filter((g) => g.rows.length > 1).length;
+  $("top-note").textContent = `${rows.length} keys · ${groups.length} ranks${tieGroups ? ` · ${tieGroups} tie group${tieGroups > 1 ? "s" : ""}` : ""}`;
+  return groups.map((g, gi) => {
+    const pod = g.rank <= 3 ? " g-pod" : "";
+    if (g.rows.length === 1) {
+      const r = g.rows[0];
+      return `<tr class="${g.rank <= 3 ? "podium" : ""}" data-did="${esc(r.did)}"><td>${rankBadge(r.rank)}</td><td>${didCell(r.did)}</td>
+        <td class="num"><div class="bar">${spark(r.trail)}<span class="v ${sgn(r.score)}">${esc(r.score)}</span></div></td></tr>`;
+    }
+    const hideFrom = g.rows.length >= 8 ? OPEN : Infinity;
+    const head = `<tr class="grp${pod}"><td>${rankBadge(g.rank)}</td>
+      <td class="gl">Tie · rank <b>${g.rank}</b> · ${fmt(g.rows.length)} keys</td>
+      <td class="num"><div class="bar">${spark(g.rows[0].trail)}<span class="v ${sgn(g.score)}">${esc(g.score)}</span></div></td></tr>`;
+    const mem = g.rows.map((r, i) => `<tr class="mem${pod}" data-did="${esc(r.did)}" data-g="${gi}"${i >= hideFrom ? " hidden" : ""}>
+      <td></td><td class="ind">${didCell(r.did)}</td><td class="num muted" style="font-size:12px">=</td></tr>`).join("");
+    const more = g.rows.length > hideFrom ? `<tr class="mem showmore${pod}" data-more="${gi}"><td></td><td colspan="2"><button class="sm" data-open="${gi}">Show ${g.rows.length - hideFrom} more</button></td></tr>` : "";
+    return head + mem + more;
+  }).join("");
+}
+function openGroup(gi) {
+  document.querySelectorAll(`#top tr[data-g="${gi}"]`).forEach((t) => t.hidden = false);
+  document.querySelector(`#top tr[data-more="${gi}"]`)?.remove();
+}
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (b) openGroup(b.dataset.open); });
+
 let hs = {k: "best_score", dir: -1}, all = false;
 function drawHist() {
   const rows = D.history.slice();
@@ -427,9 +468,9 @@ function drawHist() {
   mark_();
 }
 function drawTables() {
-  $("top").innerHTML = D.top.length ? rankRows(D.top, true) : `<tr><td colspan="3" class="empty">No scores published yet</td></tr>`;
+  $("top").innerHTML = D.top.length ? groupRows(D.top) : `<tr><td colspan="3" class="empty">No scores published yet</td></tr>`;
   const P = D.positions, allTied = P.length > 1 && P.every((r) => r.score === P[0].score);
-  $("pos-note").textContent = allTied ? `All ${P.length} tied at ${P[0].score}` : "value as published";
+  $("pos-note").textContent = allTied ? `All ${P.length} tied at ${P[0].score}` : "unit as posted by the referee";
   $("pos").innerHTML = !P.length ? `<tr><td colspan="3" class="empty">No positions published yet</td></tr>`
     : allTied ? P.map((r) => `<tr data-did="${esc(r.did)}"><td><span class="tie">=</span></td><td>${didCell(r.did)}</td><td class="num muted">${esc(r.score)}</td></tr>`).join("")
     : rankRows(P, false);
@@ -528,7 +569,11 @@ const everyone = [...new Set([...D.top.map((r) => r.did), ...D.positions.map((r)
 let hit = "";
 function mark_() {
   document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
-  if (hit) document.querySelectorAll("tr[data-did]").forEach((t) => t.dataset.did === hit && t.classList.add("hit"));
+  if (hit) document.querySelectorAll("tr[data-did]").forEach((t) => {
+    if (t.dataset.did !== hit) return;
+    if (t.hidden && t.dataset.g != null) openGroup(t.dataset.g);
+    t.classList.add("hit");
+  });
 }
 function norm(s) {
   s = s.trim().replace(/\s+/g, "");
