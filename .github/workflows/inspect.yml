@@ -1,0 +1,32 @@
+name: inspect
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python - <<'PY'
+          import json, sys
+          sys.path.insert(0, "leaderboard")
+          import build, urllib.request
+          for key, room in build.ROOMS.items():
+              raw = urllib.request.urlopen(urllib.request.Request(f"{build.BASE}/r/{room}/export", headers=build.UA), timeout=180).read().decode()
+              lines = raw.splitlines()
+              recs = build.export(room)
+              print(f"=== {key} {room}: {len(lines)} lines, {len(recs)} referee records")
+              if lines:
+                  print("raw line:", lines[-1][:600])
+              if recs:
+                  last = recs[max(recs)]
+                  print("latest record:", json.dumps(last)[:2500])
+          PY
