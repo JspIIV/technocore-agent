@@ -118,25 +118,8 @@ def build(data: dict[str, dict[int, dict]]) -> dict:
 
     top_now = ranked(pnl.get(latest, {}).get("top", []))
 
-    # Tie-break for display: the referee lists equal scores alphabetically and
-    # publishes no order times, so equal scores are ordered by who reached the
-    # score first (the earliest sweep of the unbroken run at this score in the
-    # published top 25), then by the earliest sweep the key was seen minting.
-    minted: dict[str, int] = {}
-    for n in sorted(flow):
-        for d in flow[n].get("mints") or []:
-            if isinstance(d, str):
-                minted.setdefault(d, n)
-    scores = {n: {item[0]: item[1] for item in pnl[n].get("top", [])} for n in pnl}
-    for row in top_now:
-        since = latest
-        for n in sorted((n for n in pnl if n < latest), reverse=True):
-            if scores[n].get(row["did"]) != row["score"]:
-                break
-            since = n
-        row["since"] = since
-        row["minted"] = minted.get(row["did"])
-    top_now.sort(key=lambda r: (r["rank"], r["since"], r["minted"] or 10**9))
+    # Equal scores share a rank; for display they are listed alphabetically by DID.
+    top_now.sort(key=lambda r: (r["rank"], r["did"]))
     for i, row in enumerate(top_now):
         row["pos"] = i + 1
 

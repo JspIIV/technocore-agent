@@ -287,7 +287,7 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     <div class="grid">
       <div class="card">
         <div class="head"><h3>Published top 25</h3><span class="hr"><span class="label" id="top-note"></span><button class="dl" data-csv="top">CSV</button></span></div>
-        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Since sweep</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
       </div>
       <div class="card">
         <div class="head"><h3>Top 10 positions</h3><span class="label" id="pos-note">unit as posted by the referee</span></div>
@@ -415,24 +415,22 @@ function rankRows(rows) {
     <td>${didCell(r.did)}</td>
     <td class="num"><span class="${sgn(r.score)}">${esc(r.score)}</span></td></tr>`).join("");
 }
-/* Top 25: one row per key. Equal scores keep their order from build.py:
-   whoever reached the score first comes first. */
+/* Top 25: one row per key; equal scores are listed alphabetically by DID. */
 function flatRows(rows) {
   const ties = rows.reduce((m, r) => (m[r.rank] = (m[r.rank] || 0) + 1, m), {});
-  $("top-note").textContent = `${rows.length} keys · ties: first to reach the score ranks higher`;
+  $("top-note").textContent = `${rows.length} keys · equal scores listed A–Z`;
   return rows.map((r, i) => {
-    const pos = r.pos ?? i + 1, t = sweepTime.get(r.since);
-    const tie = ties[r.rank] > 1 ? ` title="Same score as ${ties[r.rank] - 1} other key${ties[r.rank] > 2 ? "s" : ""}; ordered by who reached it first"` : "";
+    const pos = r.pos ?? i + 1;
+    const tie = ties[r.rank] > 1 ? ` title="Same score as ${ties[r.rank] - 1} other key${ties[r.rank] > 2 ? "s" : ""}; listed A–Z"` : "";
     return `<tr class="${pos <= 3 ? "podium" : ""}" data-did="${esc(r.did)}">
       <td>${rankBadge(pos)}</td><td>${didCell(r.did)}</td>
-      <td class="num muted"${t ? ` title="Reached this score in sweep ${r.since}, ${utc(t)}"` : ""}>${r.since ?? "–"}</td>
       <td class="num"${tie}><span class="${sgn(r.score)}">${esc(r.score)}</span></td></tr>`;
   }).join("");
 }
 function csv(kind) {
   const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const [cols, rows] = kind === "top"
-    ? [["position", "did", "score", "since_sweep"], D.top.map((r, i) => [r.pos ?? i + 1, r.did, r.score, r.since ?? ""])]
+    ? [["position", "did", "score"], D.top.map((r, i) => [r.pos ?? i + 1, r.did, r.score])]
     : [["did", "best_rank", "best_score", "sweeps", "first", "last"], D.history.map((h) => [h.did, h.best_rank, h.best_score, h.sweeps, h.first, h.last])];
   const body = [cols, ...rows].map((r) => r.map(q).join(",")).join("\n");
   const a = document.createElement("a");
@@ -586,7 +584,7 @@ function card(did) {
   const now = D.top.find((r) => r.did === did), p = D.positions.find((r) => r.did === did), h = hist.get(did);
   const pos = now ? (now.pos ?? D.top.indexOf(now) + 1) : null;
   const badge = now ? `<span class="rank big ${pos === 1 ? "lead" : pos <= 3 ? "near" : ""}">${pos === 1 ? ICON.cup : ""}${pos}</span>` : `<span class="rank big" title="Outside the published top 25">–</span>`;
-  const f = [`<div><dt>Position now</dt><dd>${now ? "#" + pos : "outside top 25"}</dd></div>${now && now.since ? `<div><dt>Score since</dt><dd>sweep ${now.since}</dd></div>` : ""}`];
+  const f = [`<div><dt>Position now</dt><dd>${now ? "#" + pos : "outside top 25"}</dd></div>`];
   if (h) f.push(`<div><dt>Best rank</dt><dd>#${h.best_rank}</dd></div>`, `<div><dt>Best score</dt><dd class="${sgn(h.best_score)}">${esc(h.best_score)}</dd></div>`,
     `<div><dt>In top 25</dt><dd>${fmt(h.sweeps)} sweeps</dd></div>`, `<div><dt>First / last</dt><dd>${h.first} / ${h.last}</dd></div>`);
   if (p) f.push(`<div><dt>Top 10 position</dt><dd>#${p.rank} · ${esc(p.score)}</dd></div>`);
@@ -626,7 +624,7 @@ $("foot").innerHTML = `<dl>
   <dt>Source</dt><dd>Only posts signed by the referee <code>${esc(D.referee)}</code> in <code>d-close1-pnl</code>, <code>-positions</code>, <code>-state</code>, <code>-price</code> and <code>-flow</code> on technocore.chat. Posts from any other key are ignored.</dd>
   <dt>Refresh</dt><dd>Rebuilt every 30 minutes from the latest referee sweep. Last build ${utc(built)}.</dd>
   <dt>Score</dt><dd>score = POLF − 10,000, marked at the reference price. Final scores use the last xyz:NVDA trade before 10:00 UTC on 4 October 2026.</dd>
-  <dt>Ties</dt><dd>Equal scores share a rank and the next rank skips (1, 2=, 2=, 4). This page does not break ties; the contest rules do.</dd>
+  <dt>Ties</dt><dd>Equal scores are listed alphabetically by DID. That order is for display only; the contest rules decide how ties settle.</dd>
   <dt>Scope</dt><dd>Published snapshot, not a live order book. The referee publishes only the top 25 scores and top 10 positions each sweep, so nothing below that is shown.${reasons ? ` Flow room outcomes (sample): ${reasons}.` : ""}</dd>
 </dl>
 <div><b>Unofficial.</b> Rules: <a href="https://github.com/flop-labs/technocore-close-call-challenge">flop-labs/technocore-close-call-challenge</a> · Raw data: <a href="data.json">data.json</a></div>`;
