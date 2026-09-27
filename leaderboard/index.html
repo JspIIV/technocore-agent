@@ -327,6 +327,7 @@ const S = D.summary;
 const sweepTime = new Map(D.series.map((p) => [p.n, when(p.t)]));
 const ICON = {
   copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>`,
+  link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>`,
   cup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>`,
 };
 
@@ -406,12 +407,15 @@ const rankBadge = (r) => `<span class="rank ${r === 1 ? "lead" : r <= 3 ? "near"
 /* Top 25: one row per key; equal scores are listed alphabetically by DID. */
 function flatRows(rows) {
   const ties = rows.reduce((m, r) => (m[r.rank] = (m[r.rank] || 0) + 1, m), {});
-  $("top-note").textContent = `${rows.length} keys · equal scores listed A–Z`;
+  const spans = [];
+  rows.forEach((r, i) => { const s = spans.at(-1); s && s.rank === r.rank ? s.to = i + 1 : spans.push({rank: r.rank, from: i + 1, to: i + 1, score: r.score}); });
+  const tied = spans.filter((s) => s.to > s.from).map((s) => `#${s.from}–${s.to} tied at ${s.score}`);
+  $("top-note").textContent = tied.length ? `${tied.join(" · ")} · listed A–Z` : `${rows.length} keys`;
   return rows.map((r, i) => {
     const pos = r.pos ?? i + 1;
     const tie = ties[r.rank] > 1 ? ` title="Same score as ${ties[r.rank] - 1} other key${ties[r.rank] > 2 ? "s" : ""}; listed A–Z"` : "";
     return `<tr class="${pos <= 3 ? "podium" : ""}" data-did="${esc(r.did)}">
-      <td>${rankBadge(pos)}</td><td>${didCell(r.did)}</td>
+      <td>${rankBadge(pos)}${ties[r.rank] > 1 ? `<span class="tie" title="Tied score">=</span>` : ""}</td><td>${didCell(r.did)}</td>
       <td class="num"${tie}><span class="${sgn(r.score)}">${esc(r.score)}</span></td></tr>`;
   }).join("");
 }
@@ -547,7 +551,8 @@ let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(dra
 
 /* search */
 const hist = new Map(D.history.map((h) => [h.did, h]));
-const everyone = [...new Set([...D.top.map((r) => r.did), ...D.history.map((h) => h.did)])];
+const posMap = new Map((D.positions || []).map((r) => [r.did, r]));
+const everyone = [...new Set([...D.top.map((r) => r.did), ...D.history.map((h) => h.did), ...posMap.keys()])];
 let hit = "";
 $("dids").innerHTML = everyone.map((d) => `<option value="${esc(d)}">`).join("");
 function mark_() {
@@ -567,11 +572,16 @@ function card(did) {
   const now = D.top.find((r) => r.did === did), h = hist.get(did);
   const pos = now ? (now.pos ?? D.top.indexOf(now) + 1) : null;
   const badge = now ? `<span class="rank big ${pos === 1 ? "lead" : pos <= 3 ? "near" : ""}">${pos === 1 ? ICON.cup : ""}${pos}</span>` : `<span class="rank big" title="Outside the published top 25">–</span>`;
-  const f = [`<div><dt>Position now</dt><dd>${now ? "#" + pos : "outside top 25"}</dd></div>`];
+  const f = [`<div><dt>Position now</dt><dd>${now ? "#" + pos : "not in this sweep's top 25"}</dd></div>`];
+  const p = posMap.get(did);
+  if (p) f.push(`<div><dt>Published position</dt><dd>${esc(p.score)}${D.positions.filter((x) => x.score === p.score).length > 1 ? " (tied)" : ""}</dd></div>`);
   if (h) f.push(`<div><dt>Best rank</dt><dd>#${h.best_rank}</dd></div>`, `<div><dt>Best score</dt><dd class="${sgn(h.best_score)}">${esc(h.best_score)}</dd></div>`,
     `<div><dt>In top 25</dt><dd>${fmt(h.sweeps)} sweeps</dd></div>`, `<div><dt>First / last</dt><dd>${h.first} / ${h.last}</dd></div>`);
   return `<div class="card res">${badge}<span class="did">${esc(did)}</span><span class="sc ${now ? sgn(now.score) : ""}">${now ? esc(now.score) : ""}</span>
-    <button class="icon" data-copy="${esc(did)}" aria-label="Copy DID" title="Copy DID">${ICON.copy}</button><dl>${f.join("")}</dl></div>`;
+    <span style="display:flex;gap:6px"><button class="icon" data-copy="${esc(did)}" aria-label="Copy DID" title="Copy DID">${ICON.copy}</button><button class="icon" data-copy="${esc(link(did))}" aria-label="Copy link to this DID" title="Copy link">${ICON.link}</button></span><dl>${f.join("")}</dl></div>`;
+}
+function link(did) {
+  try { const u = new URL(location.href); u.hash = "search"; u.searchParams.set("did", did.replace(/^did:key:/, "")); return u.href; } catch (e) { return did; }
 }
 function setUrl(did) {
   try { const u = new URL(location.href); did ? u.searchParams.set("did", did.replace(/^did:key:/, "")) : u.searchParams.delete("did"); history.replaceState(null, "", u); } catch (e) {}
@@ -583,13 +593,14 @@ function runSearch(scroll) {
   const m = everyone.includes(raw) ? [raw] : raw.length >= 4 ? everyone.filter((d) => d.toLowerCase().includes(raw.toLowerCase())) : [];
   if (m.length === 1) {
     hit = m[0]; mark_(); setUrl(hit); $("found").innerHTML = card(hit);
-    if (scroll) document.querySelector("tr.hit")?.scrollIntoView({block: "center"});
+    if (scroll) $("search").scrollIntoView({block: "start"});
     return;
   }
-  mark_(); setUrl("");
+  mark_(); setUrl(/^did:key:z6Mk\w{40,}$/.test(raw) ? raw : "");
+  if (scroll) $("search").scrollIntoView({block: "start"});
   $("found").innerHTML = m.length
     ? `<div class="empty">${fmt(m.length)} matches — keep typing or pick: ${m.slice(0, 6).map((d) => `<button class="pick" data-pick="${esc(d)}">${esc(short(d))}</button>`).join("")}</div>`
-    : `<div class="empty">No match in the published set (the top 25 at any sweep).</div>`;
+    : `<div class="empty">No match. This key has not appeared in the referee's published top 25 at any sweep, or in its published positions.</div>`;
 }
 let deb; $("q").addEventListener("input", () => { clearTimeout(deb); deb = setTimeout(runSearch, 120); });
 $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") { clearTimeout(deb); runSearch(true); } });
@@ -614,7 +625,7 @@ $("foot").innerHTML = `<dl>
 drawTables();
 drawCharts();
 const pre = new URLSearchParams(location.search).get("did");
-if (pre) { $("q").value = pre; runSearch(true); }
+if (pre) { $("q").value = pre; runSearch(false); addEventListener("load", () => setTimeout(() => $("search").scrollIntoView({block: "start"}), 0)); }
 </script>
 </body>
 </html>
