@@ -18,15 +18,17 @@ jobs:
           python - <<'PY'
           import json, sys
           sys.path.insert(0, "leaderboard")
-          import build, urllib.request
-          for key, room in build.ROOMS.items():
-              raw = urllib.request.urlopen(urllib.request.Request(f"{build.BASE}/r/{room}/export", headers=build.UA), timeout=180).read().decode()
-              lines = raw.splitlines()
-              recs = build.export(room)
-              print(f"=== {key} {room}: {len(lines)} lines, {len(recs)} referee records")
-              if lines:
-                  print("raw line:", lines[-1][:600])
-              if recs:
-                  last = recs[max(recs)]
-                  print("latest record:", json.dumps(last)[:2500])
+          import build
+          flow = build.export(build.ROOMS["flow"])
+          shown = 0
+          for n in sorted(flow):
+              f = flow[n]
+              if f.get("mints") and shown < 3:
+                  print("sweep", n, "keys", sorted(f), "mints sample:", json.dumps(f["mints"][:4])[:800]); shown += 1
+          v = next((flow[n] for n in sorted(flow) if flow[n].get("void")), None)
+          print("void sample:", json.dumps((v or {}).get("void", [])[:3])[:600])
+          m = next((flow[n] for n in sorted(flow) if flow[n].get("missed")), None)
+          print("missed sample:", json.dumps((m or {}).get("missed", [])[:3])[:600])
+          pnl = build.export(build.ROOMS["pnl"])
+          print("pnl extra keys:", sorted({k for r in pnl.values() for k in r}))
           PY
