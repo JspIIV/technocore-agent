@@ -82,11 +82,11 @@ const cards = [
 ];
 $("cards").innerHTML = cards.map(([k, v]) => `<div class="card"><b>${esc(v ?? "–")}</b><span>${k}</span></div>`).join("");
 
-const row = (r, extra = "") => `<tr${extra}><td>${r.rank}</td><td class="did" title="${esc(r.did)}">${esc(short(r.did))}</td><td class="num ${cls(r.score)}">${esc(r.score)}</td></tr>`;
+const row = (r) => `<tr data-did="${esc(r.did)}"><td>${r.rank}</td><td class="did" title="${esc(r.did)}">${esc(short(r.did))}</td><td class="num ${cls(r.score)}">${esc(r.score)}</td></tr>`;
 $("top").innerHTML = D.top.map((r) => row(r)).join("");
 $("pos").innerHTML = D.positions.map((r) => row(r)).join("");
 $("hist").innerHTML = D.history.slice(0, 200).map((h) =>
-  `<tr><td class="did" title="${esc(h.did)}">${esc(short(h.did))}</td><td class="num">${h.best_rank}</td><td class="num ${cls(h.best_score)}">${esc(h.best_score)}</td><td class="num">${h.sweeps}</td><td class="num">${h.first}</td><td class="num">${h.last}</td></tr>`).join("");
+  `<tr data-did="${esc(h.did)}"><td class="did" title="${esc(h.did)}">${esc(short(h.did))}</td><td class="num">${h.best_rank}</td><td class="num ${cls(h.best_score)}">${esc(h.best_score)}</td><td class="num">${h.sweeps}</td><td class="num">${h.first}</td><td class="num">${h.last}</td></tr>`).join("");
 
 function line(id, key, bars) {
   const pts = D.series.filter((p) => p[key] != null).map((p) => [p.n, Number(p[key])]);
@@ -112,6 +112,7 @@ $("q").addEventListener("input", (e) => {
   document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
   if (!q) { $("found").textContent = ""; return; }
   const now = D.top.find((r) => r.did === q), p = D.positions.find((r) => r.did === q), h = hist.get(q);
+  document.querySelectorAll("tr[data-did]").forEach((t) => { if (t.dataset.did === q) t.classList.add("hit"); });
   const bits = [];
   if (now) bits.push(`rank ${now.rank} now, score ${now.score}`);
   if (p) bits.push(`in the top 10 positions (${p.score})`);
