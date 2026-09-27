@@ -125,7 +125,7 @@ header .wrap{display:flex;align-items:center;gap:14px;height:60px}
 .tabs button{all:unset;cursor:pointer;font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:3px 8px;border-radius:6px}
 .tabs button[aria-selected="true"]{background:var(--card);color:var(--acc);box-shadow:0 0 0 1px var(--line)}
 .chart{padding:16px 18px 12px}
-.chart .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.chart .top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
 .chart .top b{font:700 18px var(--mono)}
 .plot{position:relative;height:170px;margin-top:10px}
 .plot.tall{height:190px}
@@ -157,6 +157,13 @@ tr.mem td.ind{padding-left:22px}
 tr.showmore td{padding:6px 12px}
 .sm{all:unset;cursor:pointer;color:var(--acc);font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
 tr[hidden]{display:none}
+.info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line2);color:var(--mut);font:700 10px/1 var(--mono);cursor:help;position:relative;vertical-align:1px;margin-left:4px;text-transform:none;letter-spacing:0}
+.info:hover,.info:focus{color:var(--acc);border-color:var(--acc)}
+.info::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:260px;white-space:normal;background:var(--fg);color:var(--bg);font:400 12px/1.4 var(--sans);padding:7px 10px;border-radius:7px;display:none;pointer-events:none;z-index:30;text-align:left}
+.info:hover::after,.info:focus::after{display:block}
+.dl{all:unset;cursor:pointer;font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--acc);border:1px solid var(--line2);border-radius:7px;padding:4px 8px}
+.dl:hover{border-color:var(--acc)}
+.hr{display:flex;align-items:center;gap:10px}
 .rank{display:inline-grid;place-items:center;min-width:30px;height:24px;border-radius:7px;font:700 12px var(--mono);color:var(--fg2);background:var(--card2);border:1px solid var(--line);padding:0 6px}
 .rank.lead{color:var(--card);background:var(--acc);border-color:var(--acc)}
 .rank.near{color:var(--acc);border-color:var(--acc)}
@@ -205,6 +212,13 @@ footer code{font-size:12px;word-break:break-all;color:var(--fg2)}
   .scroll td:first-child,.scroll th:first-child{position:sticky;left:0;z-index:1}
   .scroll th:first-child{z-index:3}
   footer dl{grid-template-columns:1fr;gap:2px}
+  #ever-t thead{display:none}
+  #ever-t tr{display:grid;grid-template-columns:repeat(5,auto);justify-content:space-between;gap:2px 8px;padding:10px 12px;border-top:1px solid var(--line)}
+  #ever-t td{border:0;padding:0;text-align:left;position:static;background:none}
+  #ever-t td:first-child{grid-column:1/-1;margin-bottom:4px}
+  #ever-t td[data-l]::before{content:attr(data-l);display:block;color:var(--mut);font:700 9px var(--mono);letter-spacing:.04em;text-transform:uppercase}
+  #ever-t tbody tr:hover td{background:none}
+  #ever-t tr.hit{background:var(--acc-soft)}
   footer dd{margin-bottom:8px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
@@ -224,7 +238,7 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     <span class="live" id="live"><i></i><span id="live-t">LIVE</span></span>
     <nav class="nav" aria-label="Sections"><a href="#overview">Overview</a><a href="#search">Search</a><a href="#charts">Charts</a><a href="#board">Board</a></nav>
     <div class="spacer"></div>
-    <span class="meta hide-sm" id="meta"></span>
+    <span class="meta hide-sm"><span id="meta"></span><span class="info" tabindex="0" data-tip="A sweep is one numbered round of results posted by the referee. This page rebuilds every 30 minutes from the latest sweep.">?</span></span>
     <span class="badge">Unofficial</span>
     <button class="toggle" id="theme" aria-label="Switch light or dark theme" title="Theme">
       <span class="t-l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
@@ -235,7 +249,7 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
 
 <main class="wrap">
   <div id="overview">
-    <p class="intro"><b>Close Call</b> ranks every key by <b>score = POLF − 10,000</b>, marked against the last xyz:NVDA trade. This page mirrors what the referee publishes each sweep.</p>
+    <p class="intro"><b>Close Call</b> ranks every key by <b>score = POLF − 10,000</b><span class="info" tabindex="0" data-tip="Each key's score is its POLF figure minus 10,000, exactly as the referee publishes it. The contest rules (linked at the top) define POLF.">?</span>, marked against the last xyz:NVDA trade. This page mirrors what the referee publishes each sweep.</p>
     <section class="hero" style="margin-top:16px">
       <div class="card pad">
         <div class="label">xyz:NVDA</div>
@@ -263,17 +277,17 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     <div class="sec"><h2 id="search-h">Find a DID</h2><span class="label" style="font-weight:400">full key or any part of it · link with ?did=</span></div>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="q" placeholder="did:key:z6Mk…" autocomplete="off" spellcheck="false" aria-label="Find a DID">
+      <input id="q" list="dids" placeholder="did:key:z6Mk…" autocomplete="off" spellcheck="false" aria-label="Find a DID"><datalist id="dids"></datalist>
     </div>
     <div id="found" aria-live="polite"></div>
   </section>
 
   <section id="charts" aria-labelledby="charts-h">
-    <div class="sec"><h2 id="charts-h">Charts</h2><span class="label" style="font-weight:400">hover for values</span></div>
+    <div class="sec"><h2 id="charts-h">Charts</h2><span class="tabs" role="tablist" aria-label="Chart range"><button role="tab" aria-selected="false" data-range="50">50 sweeps</button><button role="tab" aria-selected="false" data-range="200">200</button><button role="tab" aria-selected="true" data-range="0">All</button></span></div>
     <div class="charts">
       <div class="card chart"><div class="top"><span class="label">Leading score</span><b id="v-top"></b></div><div class="plot" id="c-top"></div><div class="note" id="n-top"></div></div>
       <div class="card chart"><div class="top"><span class="label">Owner keys</span><b id="v-own"></b></div><div class="plot" id="c-own"></div><div class="note" id="n-own"></div></div>
-      <div class="card chart"><div class="top"><span class="tabs" role="tablist" aria-label="Flow per sweep"><button role="tab" aria-selected="true" data-flow="settled">Settled</button><button role="tab" aria-selected="false" data-flow="mints">Mints</button></span><b id="v-flow"></b></div><div class="plot" id="c-flow"></div><div class="note" id="n-flow"></div></div>
+      <div class="card chart"><div class="top"><span class="tabs" role="tablist" aria-label="Flow per sweep"><button role="tab" aria-selected="true" data-flow="settled">Settled</button><button role="tab" aria-selected="false" data-flow="mints">Mints</button></span><span class="info" tabindex="0" data-tip="Per-sweep counts the referee posts in its flow room (d-close1-flow), including the ones it summarises as omitted.">?</span><b id="v-flow"></b></div><div class="plot" id="c-flow"></div><div class="note" id="n-flow"></div></div>
     </div>
   </section>
 
@@ -281,7 +295,7 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     <div class="sec"><h2 id="board-h">Board</h2><span class="label" style="font-weight:400">click a DID to copy it</span></div>
     <div class="grid">
       <div class="card">
-        <div class="head"><h3>Published top 25</h3><span class="label" id="top-note"></span></div>
+        <div class="head"><h3>Published top 25</h3><span class="hr"><span class="label" id="top-note"></span><button class="dl" data-csv="top">CSV</button></span></div>
         <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
       </div>
       <div class="card">
@@ -291,8 +305,8 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="head"><h3>Ever in the top 25</h3><span class="label" id="hist-n"></span></div>
-      <div class="scroll"><table><thead><tr>
+      <div class="head"><h3>Ever in the top 25</h3><span class="hr"><span class="label" id="hist-n"></span><button class="dl" data-csv="ever">CSV</button></span></div>
+      <div class="scroll"><table id="ever-t"><thead><tr>
         <th scope="col">DID</th><th scope="col" class="num sort" data-k="best_rank">Best rank</th><th scope="col" class="num sort" data-k="best_score">Best score</th>
         <th scope="col" class="num sort" data-k="sweeps">Sweeps</th><th scope="col" class="num sort" data-k="first">First</th><th scope="col" class="num sort" data-k="last">Last</th>
       </tr></thead><tbody id="hist"></tbody></table></div>
@@ -443,6 +457,19 @@ function groupRows(rows) {
     return head + mem + more;
   }).join("");
 }
+function csv(kind) {
+  const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const [cols, rows] = kind === "top"
+    ? [["rank", "did", "score"], D.top.map((r) => [r.rank, r.did, r.score])]
+    : [["did", "best_rank", "best_score", "sweeps", "first", "last"], D.history.map((h) => [h.did, h.best_rank, h.best_score, h.sweeps, h.first, h.last])];
+  const body = [cols, ...rows].map((r) => r.map(q).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([body], {type: "text/csv"}));
+  a.download = `close-call-${kind}-sweep-${D.sweep}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-csv]"); if (b) csv(b.dataset.csv); });
 function openGroup(gi) {
   document.querySelectorAll(`#top tr[data-g="${gi}"]`).forEach((t) => t.hidden = false);
   document.querySelector(`#top tr[data-more="${gi}"]`)?.remove();
@@ -455,9 +482,9 @@ function drawHist() {
   if (hs.k) rows.sort((a, b) => (Number(a[hs.k]) - Number(b[hs.k])) * hs.dir);
   const tipFor = (n) => sweepTime.get(n) ? ` title="${utc(sweepTime.get(n))}"` : "";
   $("hist").innerHTML = (all ? rows : rows.slice(0, 25)).map((h) => `<tr data-did="${esc(h.did)}">
-    <td>${didCell(h.did)}</td><td class="num">${h.best_rank}</td>
-    <td class="num">${N(h.best_score) === 0 ? `<span class="zero" title="Only ever published at 0 (before scores moved)">—</span>` : `<span class="${sgn(h.best_score)}">${esc(h.best_score)}</span>`}</td>
-    <td class="num">${fmt(h.sweeps)}</td><td class="num"${tipFor(h.first)}>${h.first}</td><td class="num"${tipFor(h.last)}>${h.last}</td></tr>`).join("");
+    <td>${didCell(h.did)}</td><td class="num" data-l="Best rank">${h.best_rank}</td>
+    <td class="num" data-l="Best score">${N(h.best_score) === 0 ? `<span class="zero" title="Only ever published at 0 (before scores moved)">—</span>` : `<span class="${sgn(h.best_score)}">${esc(h.best_score)}</span>`}</td>
+    <td class="num" data-l="Sweeps">${fmt(h.sweeps)}</td><td class="num" data-l="First"${tipFor(h.first)}>${h.first}</td><td class="num" data-l="Last"${tipFor(h.last)}>${h.last}</td></tr>`).join("");
   $("more").hidden = all || rows.length <= 25;
   $("more").textContent = `Show all ${fmt(rows.length)}`;
   document.querySelectorAll("th.sort").forEach((th) => {
@@ -497,6 +524,7 @@ function chart(id, key, {bars = false, digits = 0, last = null} = {}) {
   const el = $(id), val = $("v" + id.slice(1)), note = $("n" + id.slice(1));
   let pts = D.series.filter((p) => N(p[key]) != null).map((p) => [p.n, N(p[key])]);
   if (last) pts = pts.slice(-last);
+  if (range && !bars) pts = pts.slice(-range);
   if (val) val.textContent = pts.length ? fmt(pts.at(-1)[1], digits) : "–";
   if (pts.length < 2) { el.innerHTML = `<div class="empty">Not enough data yet</div>`; return; }
   const W = el.clientWidth || 500, H = el.clientHeight || 170, PL = 48, PR = 6, PT = 6, PB = 20;
@@ -549,6 +577,12 @@ function chart(id, key, {bars = false, digits = 0, last = null} = {}) {
   svg.addEventListener("pointerdown", (e) => show(e.clientX));
   svg.addEventListener("pointerleave", hide);
 }
+let range = 0;
+document.querySelectorAll("[data-range]").forEach((b) => b.onclick = () => {
+  range = Number(b.dataset.range);
+  document.querySelectorAll("[data-range]").forEach((x) => x.setAttribute("aria-selected", x === b));
+  drawCharts();
+});
 let flow = "settled";
 document.querySelectorAll("[data-flow]").forEach((b) => b.onclick = () => {
   flow = b.dataset.flow;
@@ -567,6 +601,7 @@ let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(dra
 const hist = new Map(D.history.map((h) => [h.did, h]));
 const everyone = [...new Set([...D.top.map((r) => r.did), ...D.positions.map((r) => r.did), ...D.history.map((h) => h.did)])];
 let hit = "";
+$("dids").innerHTML = everyone.map((d) => `<option value="${esc(d)}">`).join("");
 function mark_() {
   document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
   if (hit) document.querySelectorAll("tr[data-did]").forEach((t) => {
