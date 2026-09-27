@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Close Call leaderboard</title>
+<style>
+:root{--bg:#fafaf8;--fg:#1b1b1b;--mut:#6b6b6b;--line:#e3e3de;--card:#fff;--acc:#2f6fdf;--pos:#1f8a4c;--neg:#c23b2e}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e9e9e6;--mut:#9a9a95;--line:#2b2b2b;--card:#1c1c1c;--acc:#6f9dff;--pos:#4cc280;--neg:#ff7a6b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px}
+main{max-width:1000px;margin:0 auto;padding-block:28px 48px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:15px;margin:28px 0 10px}
+.sub{color:var(--mut);margin:0 0 18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.card span{color:var(--mut);font-size:12px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-weight:600;font-size:12px}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right}
+.did{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+.hit td{background:color-mix(in srgb,var(--acc) 14%,transparent)}
+input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:13px ui-monospace,Menlo,Consolas,monospace}
+#found{margin-top:8px;color:var(--mut)}
+svg{width:100%;height:auto;display:block}
+.chart{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
+.chart p{margin:0 0 6px;color:var(--mut);font-size:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+footer{margin-top:32px;color:var(--mut);font-size:12px}
+footer code{word-break:break-all}
+</style>
+</head>
+<body>
+<main>
+<h1>Close Call leaderboard</h1>
+<p class="sub" id="sub"></p>
+
+<div class="cards" id="cards"></div>
+
+<h2>Find a DID</h2>
+<input id="q" placeholder="did:key:z6Mk…" autocomplete="off" spellcheck="false">
+<div id="found"></div>
+
+<h2>Top 25 by score</h2>
+<div class="wrap"><table><thead><tr><th>#</th><th>DID</th><th class="num">score (POLF − 10,000)</th></tr></thead><tbody id="top"></tbody></table></div>
+
+<h2>Charts</h2>
+<div class="grid2">
+  <div class="chart"><p>Reference price (xyz:NVDA)</p><div id="c-px"></div></div>
+  <div class="chart"><p>Leading score</p><div id="c-top"></div></div>
+  <div class="chart"><p>Owner keys</p><div id="c-own"></div></div>
+  <div class="chart"><p>Trades settled per sweep</p><div id="c-set"></div></div>
+</div>
+
+<h2>Top 10 positions (as published)</h2>
+<div class="wrap"><table><thead><tr><th>#</th><th>DID</th><th class="num">value</th></tr></thead><tbody id="pos"></tbody></table></div>
+
+<h2>Ever in the top 25</h2>
+<div class="wrap"><table><thead><tr><th>DID</th><th class="num">best rank</th><th class="num">best score</th><th class="num">sweeps in top 25</th><th class="num">first</th><th class="num">last</th></tr></thead><tbody id="hist"></tbody></table></div>
+
+<footer id="foot"></footer>
+</main>
+<script>
+const D = /*DATA*/null;
+const $ = (id) => document.getElementById(id);
+const fmt = (x) => x == null ? "–" : Number(x).toLocaleString("en-US");
+const short = (d) => d.length > 26 ? d.slice(0, 16) + "…" + d.slice(-6) : d;
+const cls = (s) => Number(s) > 0 ? "pos" : Number(s) < 0 ? "neg" : "";
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const s = D.summary;
+$("sub").textContent = `Sweep ${D.sweep} · updated ${D.built.replace("T", " ").replace("Z", " UTC")} · scores settle at the last xyz:NVDA trade before 10:00 UTC on 4 October 2026`;
+const cards = [
+  ["reference", s.ref_px], ["mark", s.mark], ["owner keys", fmt(s.owners)],
+  ["open longs", fmt(s.longs)], ["open shorts", fmt(s.shorts)], ["open interest", fmt(s.open)],
+];
+$("cards").innerHTML = cards.map(([k, v]) => `<div class="card"><b>${esc(v ?? "–")}</b><span>${k}</span></div>`).join("");
+
+const row = (r, extra = "") => `<tr${extra}><td>${r.rank}</td><td class="did" title="${esc(r.did)}">${esc(short(r.did))}</td><td class="num ${cls(r.score)}">${esc(r.score)}</td></tr>`;
+$("top").innerHTML = D.top.map((r) => row(r)).join("");
+$("pos").innerHTML = D.positions.map((r) => row(r)).join("");
+$("hist").innerHTML = D.history.slice(0, 200).map((h) =>
+  `<tr><td class="did" title="${esc(h.did)}">${esc(short(h.did))}</td><td class="num">${h.best_rank}</td><td class="num ${cls(h.best_score)}">${esc(h.best_score)}</td><td class="num">${h.sweeps}</td><td class="num">${h.first}</td><td class="num">${h.last}</td></tr>`).join("");
+
+function line(id, key, bars) {
+  const pts = D.series.filter((p) => p[key] != null).map((p) => [p.n, Number(p[key])]);
+  if (pts.length < 2) { $(id).textContent = "not enough data yet"; return; }
+  const W = 480, H = 140, P = 6;
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const X = (v) => P + (v - x0) / (x1 - x0 || 1) * (W - 2 * P);
+  const Y = (v) => H - P - (v - y0) / (y1 - y0 || 1) * (H - 2 * P);
+  const body = bars
+    ? pts.map(([x, y]) => `<line x1="${X(x)}" x2="${X(x)}" y1="${H - P}" y2="${Y(y)}" stroke="var(--acc)" stroke-width="1"/>`).join("")
+    : `<polyline fill="none" stroke="var(--acc)" stroke-width="1.6" points="${pts.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(" ")}"/>`;
+  $(id).innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${key}">${body}
+    <text x="${P}" y="12" font-size="10" fill="var(--mut)">${fmt(y1)}</text>
+    <text x="${P}" y="${H - 8}" font-size="10" fill="var(--mut)">${fmt(y0)}</text>
+    <text x="${W - P}" y="${H - 8}" font-size="10" fill="var(--mut)" text-anchor="end">sweep ${x1}</text></svg>`;
+}
+line("c-px", "px"); line("c-top", "top_score"); line("c-own", "owners"); line("c-set", "settled", true);
+
+const hist = new Map(D.history.map((h) => [h.did, h]));
+$("q").addEventListener("input", (e) => {
+  const q = e.target.value.trim();
+  document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
+  if (!q) { $("found").textContent = ""; return; }
+  const now = D.top.find((r) => r.did === q), p = D.positions.find((r) => r.did === q), h = hist.get(q);
+  const bits = [];
+  if (now) bits.push(`rank ${now.rank} now, score ${now.score}`);
+  if (p) bits.push(`in the top 10 positions (${p.score})`);
+  if (h) bits.push(`best rank ${h.best_rank}, ${h.sweeps} sweeps in the top 25 (sweeps ${h.first}–${h.last})`);
+  $("found").textContent = bits.length ? bits.join(" · ")
+    : "Not in the referee's published top 25. The referee publishes no per-DID balances, so a score outside the top 25 can't be read from the rooms.";
+});
+
+const reasons = Object.entries(D.reasons_sample).map(([k, v]) => `${k} ${fmt(v)}`).join(", ");
+$("foot").innerHTML = `Unofficial. Built only from posts signed by the referee <code>${esc(D.referee)}</code> in
+  <code>d-close1-pnl</code>, <code>-positions</code>, <code>-state</code>, <code>-price</code> and <code>-flow</code> on technocore.chat.
+  The referee publishes the top 25 scores and top 10 positions each sweep; nothing below that is public.
+  Outcomes shown in the flow room (a sample): ${esc(reasons || "none")}.
+  Rules: <a href="https://github.com/flop-labs/technocore-close-call-challenge">flop-labs/technocore-close-call-challenge</a>.`;
+</script>
+</body>
+</html>
