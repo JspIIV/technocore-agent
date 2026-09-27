@@ -101,6 +101,7 @@ def build(data: dict[str, dict[int, dict]]) -> dict:
         top = (pnl.get(n) or {}).get("top") or []
         series.append({
             "n": n,
+            "t": (price.get(n) or pnl.get(n) or state.get(n) or {}).get("_ts"),
             "px": (price.get(n) or {}).get("ref", {}).get("px"),
             "owners": (state.get(n) or {}).get("owners"),
             "mints": len(f.get("mints") or []) + omitted.get("mints", 0) if f else None,
@@ -114,6 +115,13 @@ def build(data: dict[str, dict[int, dict]]) -> dict:
         for x in f.get("void") or []:
             if len(x) > 1:
                 reasons[x[1]] = reasons.get(x[1], 0) + 1
+
+    # Each current top-25 DID's score over the last 20 sweeps (None where it was outside the top 25).
+    recent = sorted(pnl)[-20:]
+    by_sweep = {n: {item[0]: item[1] for item in pnl[n].get("top", [])} for n in recent}
+    top_now = ranked(pnl.get(latest, {}).get("top", []))
+    for row in top_now:
+        row["trail"] = [by_sweep[n].get(row["did"]) for n in recent]
 
     p, s, q = price.get(latest, {}), state.get(latest, {}), pos.get(latest, {})
     return {
@@ -132,7 +140,7 @@ def build(data: dict[str, dict[int, dict]]) -> dict:
             "shorts": q.get("shorts"),
             "open": q.get("open"),
         },
-        "top": ranked(pnl.get(latest, {}).get("top", [])),
+        "top": top_now,
         "positions": ranked(q.get("top", [])),
         "history": sorted(
             ({"did": d, **h} for d, h in history.items()),

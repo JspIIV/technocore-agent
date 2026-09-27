@@ -4,75 +4,95 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Close Call leaderboard</title>
-<meta name="description" content="Live standings for the Close Call contest, read from the referee's signed posts.">
+<meta name="description" content="Live standings for the Close Call contest: top 25 scores, positions and settlement countdown, read only from the referee's signed posts.">
+<meta property="og:title" content="Close Call leaderboard">
+<meta property="og:description" content="Top 25 scores, positions and settlement countdown for the Close Call contest, rebuilt every 30 minutes from the referee's signed posts.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#0b1029">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1029'/%3E%3Cpath d='M8 21l6-6 4 4 6-8' stroke='%2312b0d8' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* palette: the fixed tokens; everything else is mixed from them */
+:root{--bg:#f3f5fa;--fg:#0b1029;--mut:#5a6380;--line:#d9deeb;--card:#fff;--acc:#0a86a8;--pos:#1f8a4c;--neg:#c23b2e;color-scheme:light}
+:root[data-theme="dark"]{--bg:#0b1029;--fg:#f4f6fb;--mut:#8b94b3;--line:#1f2a4d;--card:#10173a;--acc:#12b0d8;--pos:#4cc280;--neg:#ff7a6b;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1029;--fg:#f4f6fb;--mut:#8b94b3;--line:#1f2a4d;--card:#10173a;--acc:#12b0d8;--pos:#4cc280;--neg:#ff7a6b;color-scheme:dark}}
 :root{
-  --bg:#f3f5fa;--bg2:#e9edf6;--card:#ffffff;--card2:#f7f9fc;--line:#dde2ee;--line2:#cfd6e6;
-  --fg:#0b1029;--fg2:#3a4363;--mut:#6b7493;
-  --acc:#0a86a8;--acc-soft:rgba(10,134,168,.12);--acc-glow:rgba(10,134,168,.0);
-  --pos:#12804a;--pos-soft:rgba(18,128,74,.12);--neg:#c23b2e;--neg-soft:rgba(194,59,46,.12);
-  --gold:#b7860b;--silver:#6f7a8f;--bronze:#a15c2b;
-  --shadow:0 1px 2px rgba(11,16,41,.06),0 8px 24px rgba(11,16,41,.06);
+  --card2:color-mix(in srgb,var(--fg) 3%,var(--card));--line2:color-mix(in srgb,var(--fg) 8%,var(--line));
+  --fg2:color-mix(in srgb,var(--fg) 78%,var(--mut));--hover:color-mix(in srgb,var(--acc) 8%,var(--card));
+  --acc-soft:color-mix(in srgb,var(--acc) 14%,transparent);--fill:color-mix(in srgb,var(--acc) 18%,transparent);
+  --pos-soft:color-mix(in srgb,var(--pos) 14%,transparent);--neg-soft:color-mix(in srgb,var(--neg) 14%,transparent);
   --mono:'Space Mono',ui-monospace,Menlo,Consolas,monospace;
   --sans:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#070b1f;--bg2:#0b1029;--card:#0e1533;--card2:#111a3d;--line:#1c2650;--line2:#26325f;
-  --fg:#f4f6fb;--fg2:#c3c9dd;--mut:#8089a8;
-  --acc:#12b0d8;--acc-soft:rgba(18,176,216,.14);--acc-glow:rgba(18,176,216,.22);
-  --pos:#3fd08a;--pos-soft:rgba(63,208,138,.13);--neg:#ff6b5c;--neg-soft:rgba(255,107,92,.13);
-  --gold:#f2c14e;--silver:#b9c2d6;--bronze:#e0915a;
-  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 30px rgba(0,0,0,.35);
-}}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
-  background-image:radial-gradient(1200px 500px at 50% -200px,var(--acc-glow),transparent 70%)}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 a{color:var(--acc);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
 .mono,.did,code,.num{font-family:var(--mono)}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.muted{color:var(--mut)}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+section{margin-top:40px}
+.sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 12px}
+.sec h2{margin:0;color:var(--acc);font:700 13px var(--mono);letter-spacing:.08em;text-transform:uppercase}
 
 /* top bar */
-header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;gap:14px;height:60px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:15px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;color:var(--fg);text-decoration:none}
 .brand svg{width:28px;height:28px;flex:none}
 .brand b{color:var(--acc)}
-.live{display:inline-flex;align-items:center;gap:7px;font:600 11px var(--mono);letter-spacing:.08em;color:var(--pos);background:var(--pos-soft);border-radius:99px;padding:4px 10px}
-.live i{width:7px;height:7px;border-radius:50%;background:var(--pos);box-shadow:0 0 0 0 var(--pos);animation:pulse 2s infinite}
-.live.stale{color:var(--mut);background:var(--card2)}.live.stale i{background:var(--mut);animation:none}
+.live{display:inline-flex;align-items:center;gap:7px;font:700 11px var(--mono);letter-spacing:.08em;color:var(--pos);background:var(--pos-soft);border-radius:99px;padding:4px 10px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--pos);animation:pulse 2s infinite}
+.live.stale{color:var(--neg);background:var(--neg-soft)}.live.stale i{background:var(--neg);animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pos) 60%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.nav{display:flex;gap:18px;margin-left:10px}
+.nav a{color:var(--mut);text-decoration:none;font:13px var(--mono);padding:19px 0;border-bottom:2px solid transparent}
+.nav a:hover,.nav a.on{color:var(--acc);border-bottom-color:var(--acc)}
 .spacer{flex:1}
 .meta{color:var(--mut);font:12px var(--mono);white-space:nowrap}
-.badge{font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);border:1px solid var(--line2);border-radius:6px;padding:3px 7px}
+.badge{font:700 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);border:1px solid var(--line2);border-radius:6px;padding:3px 7px}
+.toggle{display:inline-flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px;cursor:pointer;color:var(--mut)}
+.toggle span{display:grid;place-items:center;width:26px;height:22px;border-radius:99px}
+.toggle svg{width:14px;height:14px}
+.toggle[data-mode="light"] .t-l,.toggle[data-mode="dark"] .t-d{background:var(--acc);color:var(--card)}
+
+/* intro */
+.byline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:22px 0 0;font:12px var(--mono);color:var(--mut)}
+.byline a{font-weight:700}
+.intro{margin:10px 0 0;color:var(--mut);font-size:14px;max-width:820px}
+.intro b{color:var(--fg);font-weight:600}
 
 /* hero */
-.hero{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin:28px 0 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.hero{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin:16px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px}
 .pad{padding:18px 20px}
-.label{color:var(--mut);font:600 11px var(--mono);letter-spacing:.09em;text-transform:uppercase}
-.price{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px}
-.price .big{font:700 44px/1.05 var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.chip{font:600 12px var(--mono);border-radius:6px;padding:3px 8px}
+.label{color:var(--mut);font:700 11px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.price{display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap;margin-top:6px}
+.price .big{font:700 42px/1.05 var(--mono);letter-spacing:-.02em}
+.price .mk{font:700 24px/1.1 var(--mono)}
+.price small{display:block;color:var(--mut);font:700 11px var(--mono);letter-spacing:.09em;text-transform:uppercase;margin-bottom:4px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{font:700 12px var(--mono);border-radius:6px;padding:3px 8px}
 .chip.pos{color:var(--pos);background:var(--pos-soft)}.chip.neg{color:var(--neg);background:var(--neg-soft)}.chip.flat{color:var(--mut);background:var(--card2)}
 .sub{color:var(--mut);font-size:13px;margin-top:4px}
-#hero-chart{margin-top:10px;position:relative}
 .count{display:flex;flex-direction:column;justify-content:space-between;gap:16px}
-.count h2{margin:4px 0 0;font:600 18px var(--sans)}
+.count h3{margin:4px 0 0;font:600 18px var(--sans)}
 .clock{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .clock div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center}
-.clock b{display:block;font:700 28px/1 var(--mono);font-variant-numeric:tabular-nums}
+.clock b{display:block;font:700 28px/1 var(--mono)}
 .clock span{color:var(--mut);font:11px var(--mono);text-transform:uppercase;letter-spacing:.08em}
 .count p{margin:0;color:var(--mut);font-size:13px}
 
 /* kpis */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
-.kpi b{display:block;font:700 26px/1.15 var(--sans);letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.kpi{transition:background .15s}
+.kpi:hover{background:var(--hover)}
+.kpi b{display:block;font:700 22px/1.25 var(--mono);letter-spacing:-.01em;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ls{display:flex;height:6px;border-radius:99px;overflow:hidden;margin-top:12px;gap:2px}
 .ls i{display:block;height:100%}
 .ls .l{background:var(--pos)}.ls .s{background:var(--neg)}
@@ -82,360 +102,492 @@ header .wrap{display:flex;align-items:center;gap:14px;height:60px}
 /* search */
 .search{position:relative}
 .search svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--mut)}
-.search input{width:100%;height:52px;padding:0 16px 0 46px;border:1px solid var(--line2);border-radius:12px;background:var(--card);color:var(--fg);font:14px var(--mono);box-shadow:var(--shadow)}
+.search input{width:100%;height:52px;padding:0 16px 0 46px;border:1px solid var(--line2);border-radius:12px;background:var(--card);color:var(--fg);font:14px var(--mono)}
 .search input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 4px var(--acc-soft)}
 #found{margin-top:10px}
-.res{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
-.res .did{font-size:12px;color:var(--fg2);word-break:break-all;flex-basis:100%}
-.pill{display:inline-flex;gap:6px;align-items:baseline;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px}
-.pill b{font-family:var(--mono)}
-.res.miss{color:var(--mut);font-size:13px}
-.res button{font:12px var(--mono);background:none;border:1px solid var(--line2);color:var(--fg2);border-radius:7px;padding:4px 8px;cursor:pointer}
-.res button:hover{border-color:var(--acc);color:var(--acc)}
-
-/* layout */
-.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
-.stack{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
-.head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 12px}
-.head h2{margin:0;font:600 16px var(--sans)}
-.head .label{font-weight:400}
-table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:10px 14px;border-top:1px solid var(--line);white-space:nowrap;font-size:14px}
-th{color:var(--mut);font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;background:var(--card2)}
-th.num,td.num{text-align:right}
-tbody tr{transition:background .12s}
-tbody tr:hover{background:var(--card2)}
-tr.hit td{background:var(--acc-soft)!important}
-tr.hit td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
-.rank{display:inline-grid;place-items:center;min-width:28px;height:24px;border-radius:7px;font:700 12px var(--mono);color:var(--fg2);background:var(--card2);border:1px solid var(--line);padding:0 6px}
-.r1 .rank{color:#1b1400;background:var(--gold);border-color:transparent}
-.r2 .rank{color:#0b1029;background:var(--silver);border-color:transparent}
-.r3 .rank{color:#1b0d00;background:var(--bronze);border-color:transparent}
-.did{font-size:13px;color:var(--fg)}
-.cp{opacity:0;margin-left:6px;border:0;background:none;color:var(--mut);cursor:pointer;font:12px var(--mono);padding:2px 4px;border-radius:4px}
-tr:hover .cp,.cp:focus{opacity:1}.cp:hover{color:var(--acc)}
-.bar{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:10px}
-.bar i{display:block;height:6px;border-radius:99px;background:var(--pos);opacity:.85;min-width:2px}
-.bar i.neg{background:var(--neg)}
-.bar .v{min-width:72px;text-align:right;font-family:var(--mono)}
-.pos{color:var(--pos)}.neg{color:var(--neg)}
-.tie{color:var(--mut);font:11px var(--mono);margin-left:4px}
-.scroll{overflow-x:auto}
-.more{display:block;width:100%;padding:12px;border:0;border-top:1px solid var(--line);background:none;color:var(--acc);font:600 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:0 0 14px 14px}
-.more:hover{background:var(--card2)}
-th[data-k]{cursor:pointer;user-select:none}
-th[data-k]:hover{color:var(--fg)}
-th .arr{color:var(--acc)}
+.res{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px 14px;align-items:center;padding:14px 16px}
+.res .did{font-size:13px;word-break:break-all}
+.res .sc{font:700 18px var(--mono)}
+.res dl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin:0}
+.res dl div{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px}
+.res dt{display:inline;color:var(--mut)}.res dd{display:inline;margin:0 0 0 6px;font:700 13px var(--mono)}
+.empty{color:var(--mut);font-size:13px;padding:10px 2px}
+.icon{display:inline-grid;place-items:center;width:36px;height:34px;border:1px solid var(--line2);border-radius:8px;background:var(--card);color:var(--fg);cursor:pointer}
+.icon:hover{border-color:var(--acc);color:var(--acc)}
+.icon svg{width:16px;height:16px}
+.pick{all:unset;cursor:pointer;color:var(--acc);font:12px var(--mono);margin:0 8px 0 0;text-decoration:underline;text-underline-offset:3px}
 
 /* charts */
-.charts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
-.chart{position:relative;padding:16px 18px 12px}
+.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.tabs{display:inline-flex;gap:2px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:2px}
+.tabs button{all:unset;cursor:pointer;font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:3px 8px;border-radius:6px}
+.tabs button[aria-selected="true"]{background:var(--card);color:var(--acc);box-shadow:0 0 0 1px var(--line)}
+.chart{padding:16px 18px 12px}
 .chart .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .chart .top b{font:700 18px var(--mono)}
-.plot{position:relative;margin-top:8px}
-svg{display:block;width:100%;height:auto;overflow:visible}
-.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font:12px var(--mono);padding:6px 9px;border-radius:7px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s;z-index:2}
-.tip span{opacity:.7}
-.empty{color:var(--mut);font-size:13px;padding:30px 0;text-align:center}
+.plot{position:relative;height:170px;margin-top:10px}
+.plot.tall{height:190px}
+.plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.plot text{fill:var(--mut);font:10px var(--mono)}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font:12px var(--mono);padding:6px 9px;border-radius:7px;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px));opacity:0;z-index:3}
+.note{font:11px var(--mono);color:var(--mut);margin-top:6px;min-height:16px}
 
-footer{margin:40px 0 48px;padding-top:20px;border-top:1px solid var(--line);color:var(--mut);font-size:13px;display:grid;gap:8px}
+/* tables */
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 12px}
+.head h3{margin:0;font:600 16px var(--sans)}
+.head .label{font-weight:400}
+.scroll{overflow:auto}
+table{border-collapse:separate;border-spacing:0;width:100%}
+th,td{text-align:left;padding:10px 14px;border-top:1px solid var(--line);white-space:nowrap;font-size:14px;background:var(--card)}
+th{position:sticky;top:0;z-index:2;color:var(--mut);font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;background:var(--card2)}
+th.num,td.num{text-align:right}
+tbody tr td{transition:background .12s}
+tbody tr:hover td{background:var(--hover)}
+tr.hit td{background:var(--acc-soft)!important}
+tr.podium td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+.rank{display:inline-grid;place-items:center;min-width:30px;height:24px;border-radius:7px;font:700 12px var(--mono);color:var(--fg2);background:var(--card2);border:1px solid var(--line);padding:0 6px}
+.rank.lead{color:var(--card);background:var(--acc);border-color:var(--acc)}
+.rank.near{color:var(--acc);border-color:var(--acc)}
+.rank svg{width:12px;height:12px;margin-right:3px}
+.rank.big{height:30px;min-width:44px;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.tie{color:var(--mut);font:12px var(--mono);margin-left:3px}
+.didb{all:unset;cursor:pointer;font:13px var(--mono);border-radius:4px}
+.didb:hover{color:var(--acc)}
+.bar{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.bar .v{min-width:64px;text-align:right;font-family:var(--mono)}
+.spark{display:block}
+.zero{color:var(--mut)}
+th.sort{cursor:pointer;user-select:none}
+th.sort:hover{color:var(--fg)}
+th .arr{color:var(--acc)}
+.more{display:block;width:100%;padding:12px;border:0;border-top:1px solid var(--line);background:none;color:var(--acc);font:700 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:0 0 12px 12px}
+.more:hover{background:var(--hover)}
+
+footer{margin:48px 0;padding-top:20px;border-top:1px solid var(--line);color:var(--mut);font-size:13px}
+footer dl{display:grid;grid-template-columns:max-content 1fr;gap:8px 20px;margin:0 0 14px}
+footer dt{font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--fg);padding-top:2px}
+footer dd{margin:0}
 footer code{font-size:12px;word-break:break-all;color:var(--fg2)}
 
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font:13px var(--mono);opacity:0;transition:.2s;pointer-events:none;z-index:50}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:980px){.nav{display:none}}
+@media (max-width:1060px){.charts{grid-template-columns:repeat(2,minmax(0,1fr))}.charts>:first-child{grid-column:1/-1}}
 @media (max-width:900px){
-  .hero,.grid{grid-template-columns:minmax(0,1fr)}
+  .hero,.grid,.charts{grid-template-columns:minmax(0,1fr)}
+  .charts>:first-child{grid-column:auto}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .charts{grid-template-columns:minmax(0,1fr)}
   .meta.hide-sm{display:none}
 }
-@media (max-width:520px){
+@media (max-width:560px){
   .price .big{font-size:36px}
   .clock b{font-size:22px}
-  .kpi b{font-size:20px}
+  .kpi b{font-size:19px}
   th,td{padding:9px 8px;font-size:13px}
-  .cp{display:none}
-  .did{font-size:12px}
+  .didb{font-size:12px}
+  .spark,.badge{display:none}
   .bar .v{min-width:0}
-  .bar i{display:none}
-  .badge{display:none}
+  .res{grid-template-columns:auto minmax(0,1fr) auto}
+  .res .sc{display:none}
+  .scroll td:first-child,.scroll th:first-child{position:sticky;left:0;z-index:1}
+  .scroll th:first-child{z-index:3}
+  footer dl{grid-template-columns:1fr;gap:2px}
+  footer dd{margin-bottom:8px}
 }
-@media (prefers-reduced-motion:reduce){.live i{animation:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
+<script>
+try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 </head>
 <body>
 <header>
   <div class="wrap">
-    <div class="brand">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--card2)" stroke="var(--line2)"/><path d="M8 21l6-6 4 4 6-8" stroke="var(--acc)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span><b>Close Call</b> Leaderboard</span>
-    </div>
+    <a class="brand" href="#overview">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="var(--card)" stroke="var(--line)"/><path d="M8 21l6-6 4 4 6-8" stroke="var(--acc)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span><b>Close Call</b> leaderboard</span>
+    </a>
     <span class="live" id="live"><i></i><span id="live-t">LIVE</span></span>
+    <nav class="nav" aria-label="Sections"><a href="#overview">Overview</a><a href="#search">Search</a><a href="#charts">Charts</a><a href="#board">Board</a></nav>
     <div class="spacer"></div>
     <span class="meta hide-sm" id="meta"></span>
     <span class="badge">Unofficial</span>
+    <button class="toggle" id="theme" aria-label="Switch light or dark theme" title="Theme">
+      <span class="t-l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+      <span class="t-d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span>
+    </button>
   </div>
 </header>
 
 <main class="wrap">
-  <section class="hero">
-    <div class="card pad">
-      <div class="label">Reference price · xyz:NVDA</div>
-      <div class="price"><span class="big" id="px">–</span><span class="chip flat" id="chg">–</span></div>
-      <div class="sub" id="px-sub"></div>
-      <div id="hero-chart" class="plot"></div>
-    </div>
-    <div class="card pad count">
-      <div>
-        <div class="label">Settlement</div>
-        <h2 id="settle-h">Scores settle in</h2>
+  <div id="overview">
+    <p class="byline"><span>Community leaderboard for the <a href="https://github.com/flop-labs/technocore-close-call-challenge">Close Call challenge by Flop Labs</a></span><span>·</span><span>not run or endorsed by Flop</span></p>
+    <p class="intro"><b>Close Call</b> ranks every key by <b>score = POLF − 10,000</b>, marked against the last xyz:NVDA trade. This page mirrors what the referee publishes each sweep.</p>
+    <section class="hero" style="margin-top:16px">
+      <div class="card pad">
+        <div class="label">xyz:NVDA</div>
+        <div class="price">
+          <div><small>Reference</small><span class="big" id="px">–</span></div>
+          <div><small>Mark</small><span class="mk" id="mark">–</span></div>
+        </div>
+        <div class="chips"><span class="chip flat" id="dlt">–</span><span class="chip flat" id="chg">–</span></div>
+        <div class="plot tall" id="c-px"></div>
+        <div class="note" id="n-px"></div>
       </div>
-      <div class="clock" id="clock"></div>
-      <p>At the last xyz:NVDA trade before 10:00 UTC on 4 October 2026.</p>
-    </div>
-  </section>
-
-  <section class="kpis" id="kpis"></section>
-
-  <div class="search">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-    <input id="q" placeholder="Find a DID or any part of it" autocomplete="off" spellcheck="false" aria-label="Find a DID">
+      <div class="card pad count">
+        <div>
+          <div class="label">Settlement</div>
+          <h3 id="settle-h">Scores settle in</h3>
+        </div>
+        <div class="clock" id="clock" role="timer" aria-live="off"></div>
+        <p>At the last xyz:NVDA trade before 10:00 UTC on 4 October 2026.</p>
+      </div>
+    </section>
+    <div class="kpis" id="kpis"></div>
   </div>
-  <div id="found"></div>
 
-  <section class="grid">
-    <div class="card">
-      <div class="head"><h2>Top 25 by score</h2><span class="label">score = POLF − 10,000</span></div>
-      <div class="scroll"><table><thead><tr><th>#</th><th>DID</th><th class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
+  <section id="search" aria-labelledby="search-h">
+    <div class="sec"><h2 id="search-h">Find a DID</h2><span class="label" style="font-weight:400">full key or any part of it · link with ?did=</span></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" placeholder="did:key:z6Mk…" autocomplete="off" spellcheck="false" aria-label="Find a DID">
     </div>
-    <div class="stack">
+    <div id="found" aria-live="polite"></div>
+  </section>
+
+  <section id="charts" aria-labelledby="charts-h">
+    <div class="sec"><h2 id="charts-h">Charts</h2><span class="label" style="font-weight:400">hover for values</span></div>
+    <div class="charts">
+      <div class="card chart"><div class="top"><span class="label">Leading score</span><b id="v-top"></b></div><div class="plot" id="c-top"></div><div class="note" id="n-top"></div></div>
+      <div class="card chart"><div class="top"><span class="label">Owner keys</span><b id="v-own"></b></div><div class="plot" id="c-own"></div><div class="note" id="n-own"></div></div>
+      <div class="card chart"><div class="top"><span class="tabs" role="tablist" aria-label="Flow per sweep"><button role="tab" aria-selected="true" data-flow="settled">Settled</button><button role="tab" aria-selected="false" data-flow="mints">Mints</button></span><b id="v-flow"></b></div><div class="plot" id="c-flow"></div><div class="note" id="n-flow"></div></div>
+    </div>
+  </section>
+
+  <section id="board" aria-labelledby="board-h">
+    <div class="sec"><h2 id="board-h">Board</h2><span class="label" style="font-weight:400">click a DID to copy it</span></div>
+    <div class="grid">
       <div class="card">
-        <div class="head"><h2>Top 10 positions</h2><span class="label">as published</span></div>
-        <div class="scroll"><table><thead><tr><th>#</th><th>DID</th><th class="num">Value</th></tr></thead><tbody id="pos"></tbody></table></div>
+        <div class="head"><h3>Top 25 by score</h3><span class="label">last 20 sweeps →</span></div>
+        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
       </div>
-      <div class="card chart"><div class="top"><span class="label">Leading score</span><b id="v-top"></b></div><div class="plot" id="c-top"></div></div>
+      <div class="card">
+        <div class="head"><h3>Top 10 positions</h3><span class="label" id="pos-note">value as published</span></div>
+        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Value</th></tr></thead><tbody id="pos"></tbody></table></div>
+      </div>
     </div>
-  </section>
 
-  <section class="charts">
-    <div class="card chart"><div class="top"><span class="label">Owner keys</span><b id="v-own"></b></div><div class="plot" id="c-own"></div></div>
-    <div class="card chart"><div class="top"><span class="label">Trades settled / sweep · last 120</span><b id="v-set"></b></div><div class="plot" id="c-set"></div></div>
-    <div class="card chart"><div class="top"><span class="label">Mints / sweep · last 120</span><b id="v-mint"></b></div><div class="plot" id="c-mint"></div></div>
-  </section>
-
-  <section class="card" style="margin-top:16px">
-    <div class="head"><h2>Hall of fame</h2><span class="label" id="hist-n"></span></div>
-    <div class="scroll"><table><thead><tr>
-      <th>DID</th><th class="num" data-k="best_rank">Best rank</th><th class="num" data-k="best_score">Best score</th>
-      <th class="num" data-k="sweeps">Sweeps in top 25</th><th class="num" data-k="first">First</th><th class="num" data-k="last">Last</th>
-    </tr></thead><tbody id="hist"></tbody></table></div>
-    <button class="more" id="more" hidden>Show more</button>
+    <div class="card" style="margin-top:16px">
+      <div class="head"><h3>Ever in the top 25</h3><span class="label" id="hist-n"></span></div>
+      <div class="scroll"><table><thead><tr>
+        <th scope="col">DID</th><th scope="col" class="num sort" data-k="best_rank">Best rank</th><th scope="col" class="num sort" data-k="best_score">Best score</th>
+        <th scope="col" class="num sort" data-k="sweeps">Sweeps</th><th scope="col" class="num sort" data-k="first">First</th><th scope="col" class="num sort" data-k="last">Last</th>
+      </tr></thead><tbody id="hist"></tbody></table></div>
+      <button class="more" id="more" hidden>Show all</button>
+    </div>
   </section>
 
   <footer id="foot"></footer>
 </main>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 const D = /*DATA*/null;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const num = (x) => x == null || x === "" ? null : Number(x);
-const fmt = (x, d) => x == null || isNaN(x) ? "–" : Number(x).toLocaleString("en-US", d == null ? {} : {minimumFractionDigits: d, maximumFractionDigits: d});
-const compact = (x) => x == null ? "–" : Number(x).toLocaleString("en-US", {notation: "compact", maximumFractionDigits: 2});
-const short = (d) => d.length > 30 ? d.slice(0, 16) + "…" + d.slice(-6) : d;
-const sign = (s) => Number(s) > 0 ? "pos" : Number(s) < 0 ? "neg" : "";
-const s = D.summary;
+const N = (x) => x == null || x === "" || isNaN(Number(x)) ? null : Number(x);
+const fmt = (x, d) => N(x) == null ? "–" : Number(x).toLocaleString("en-US", d == null ? {maximumFractionDigits: 2} : {minimumFractionDigits: d, maximumFractionDigits: d});
+const plus = (x, d) => (N(x) > 0 ? "+" : "") + fmt(x, d);
+const sgn = (x) => N(x) > 0 ? "pos" : N(x) < 0 ? "neg" : "";
+const narrow = matchMedia("(max-width:560px)");
+const short = (d) => {
+  const k = d.startsWith("did:key:") ? d.slice(8) : d;
+  return narrow.matches ? `${k.slice(0, 8)}…${k.slice(-4)}` : `did:key:${k.slice(0, 8)}…${k.slice(-6)}`;
+};
+const when = (t) => {
+  if (t == null) return null;
+  const d = typeof t === "number" ? new Date(t < 1e12 ? t * 1000 : t) : new Date(t);
+  return isNaN(d) ? null : d;
+};
+const utc = (d) => d ? d.toISOString().slice(0, 16).replace("T", " ") + " UTC" : "";
+const S = D.summary;
+const sweepTime = new Map(D.series.map((p) => [p.n, when(p.t)]));
+const ICON = {
+  copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>`,
+  cup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>`,
+};
 
-/* header */
+/* theme */
+const root = document.documentElement;
+const mode = () => root.dataset.theme || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light");
+function paintTheme() {
+  $("theme").dataset.mode = mode();
+  document.querySelector('meta[name="theme-color"]').content = mode() === "dark" ? "#0b1029" : "#f3f5fa";
+}
+$("theme").onclick = () => {
+  root.dataset.theme = mode() === "dark" ? "light" : "dark";
+  try { localStorage.setItem("cc-theme", root.dataset.theme); } catch (e) {}
+  paintTheme();
+};
+paintTheme();
+
+/* toast + copy */
+let tt;
+function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 1400); }
+document.addEventListener("click", async (e) => {
+  const c = e.target.closest("[data-copy]");
+  if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); toast("Copied"); } catch (err) { toast("Copy failed"); } }
+  const p = e.target.closest("[data-pick]");
+  if (p) { $("q").value = p.dataset.pick; runSearch(true); }
+});
+
+/* header + countdown */
 const built = new Date(D.built);
 function ago() {
-  const m = Math.round((Date.now() - built) / 60000);
-  const t = m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+  const m = Math.max(0, Math.round((Date.now() - built) / 60000));
+  const t = m < 1 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ${m % 60}m ago` : `${Math.floor(m / 1440)}d ago`;
   $("meta").textContent = `Sweep ${D.sweep} · updated ${t}`;
+  $("meta").title = `Built ${utc(built)}`;
   const stale = m > 90;
   $("live").classList.toggle("stale", stale);
   $("live-t").textContent = stale ? "DELAYED" : "LIVE";
 }
 ago(); setInterval(ago, 30000);
-
-/* hero price */
-const pxs = D.series.filter((p) => p.px != null).map((p) => [p.n, Number(p.px)]);
-const px = num(s.ref_px);
-$("px").textContent = px == null ? "–" : fmt(px, 2);
-if (pxs.length > 1 && px != null) {
-  const first = pxs[0][1], d = px - first, pc = d / first * 100;
-  const c = $("chg");
-  c.className = "chip " + (d > 0 ? "pos" : d < 0 ? "neg" : "flat");
-  c.textContent = `${d >= 0 ? "+" : ""}${fmt(d, 2)} (${d >= 0 ? "+" : ""}${fmt(pc, 2)}%) since sweep ${pxs[0][0]}`;
-}
-$("px-sub").textContent = `Mark ${s.mark ?? "–"}${s.ref_time ? " · ref time " + new Date(typeof s.ref_time === "number" && s.ref_time < 1e12 ? s.ref_time * 1000 : s.ref_time).toUTCString().replace("GMT", "UTC") : ""}`.replace(" · ref time Invalid Date", "");
-
-/* countdown */
 const SETTLE = Date.UTC(2026, 9, 4, 10, 0, 0);
 function tick() {
   let ms = SETTLE - Date.now();
   if (ms <= 0) { $("settle-h").textContent = "Settled"; ms = 0; }
-  const u = [[86400000, "days"], [3600000, "hrs"], [60000, "min"], [1000, "sec"]];
+  const u = [[864e5, "days"], [36e5, "hrs"], [6e4, "min"], [1e3, "sec"]];
   $("clock").innerHTML = u.map(([k, l]) => { const v = Math.floor(ms / k); ms -= v * k; return `<div><b>${String(v).padStart(2, "0")}</b><span>${l}</span></div>`; }).join("");
 }
 tick(); setInterval(tick, 1000);
 
+/* price hero */
+const ref = N(S.ref_px), mark = N(S.mark), dl = ref != null && mark != null ? mark - ref : null;
+$("px").textContent = fmt(ref, 2);
+$("mark").textContent = fmt(mark, 2);
+if (dl != null) { const c = $("dlt"); c.className = "chip " + (sgn(dl) || "flat"); c.textContent = `mark − ref ${plus(dl, 2)} (${plus(dl / ref * 100, 2)}%)`; }
+const pxs = D.series.filter((p) => N(p.px) != null);
+if (pxs.length > 1 && ref != null) {
+  const f = N(pxs[0].px), d = ref - f, c = $("chg");
+  c.className = "chip " + (sgn(d) || "flat");
+  c.textContent = `${plus(d, 2)} (${plus(d / f * 100, 2)}%) since sweep ${pxs[0].n}`;
+}
+
 /* kpis */
-const L = num(s.longs), S = num(s.shorts), lsTot = (L || 0) + (S || 0);
-const ownS = D.series.filter((p) => p.owners != null);
-const ownD = ownS.length > 1 ? ownS.at(-1).owners - ownS.at(-2).owners : null;
+const L = N(S.longs), Sh = N(S.shorts), tot = (L || 0) + (Sh || 0);
+const own = D.series.filter((p) => p.owners != null);
+const ownD = own.length > 1 ? own.at(-1).owners - own.at(-2).owners : null;
 $("kpis").innerHTML = [
-  `<div class="card pad kpi"><div class="label">Owner keys</div><b title="${fmt(s.owners)}">${fmt(s.owners)}</b><div class="sub">${ownD == null ? "&nbsp;" : `${ownD >= 0 ? "+" : ""}${fmt(ownD)} last sweep`}</div></div>`,
-  `<div class="card pad kpi"><div class="label">Open interest</div><b title="${fmt(s.open)}">${compact(s.open)}</b><div class="sub">${fmt(s.open)}</div></div>`,
-  `<div class="card pad kpi" style="grid-column:span 2"><div class="label">Longs vs shorts</div>
-     <b>${lsTot ? fmt(L / lsTot * 100, 1) + "% long" : "–"}</b>
-     <div class="ls">${lsTot ? `<i class="l" style="width:${L / lsTot * 100}%"></i><i class="s" style="width:${S / lsTot * 100}%"></i>` : ""}</div>
-     <div class="lsk"><span class="l">${fmt(L)} long</span><span class="s">${fmt(S)} short</span></div></div>`,
+  `<div class="card pad kpi" aria-label="Owner keys ${fmt(S.owners)}"><div class="label">Owner keys</div><b>${fmt(S.owners)}</b><div class="sub">${ownD == null ? "&nbsp;" : `${plus(ownD, 0)} last sweep`}</div></div>`,
+  `<div class="card pad kpi" aria-label="Open interest ${fmt(S.open)}"><div class="label">Open interest</div><b>${N(S.open) == null ? "–" : Number(S.open).toLocaleString("en-US", {notation: "compact", maximumFractionDigits: 2})}</b><div class="sub">${fmt(S.open, 0)}</div></div>`,
+  `<div class="card pad kpi" style="grid-column:span 2" aria-label="Longs ${fmt(L)}, shorts ${fmt(Sh)}"><div class="label">Longs vs shorts</div>
+     <b>${tot ? fmt(L / tot * 100, 1) + "% long" : "–"}</b>
+     <div class="ls">${tot ? `<i class="l" style="width:${L / tot * 100}%"></i><i class="s" style="width:${Sh / tot * 100}%"></i>` : ""}</div>
+     <div class="lsk"><span class="l">${fmt(L)} long</span><span class="s">${fmt(Sh)} short</span></div></div>`,
 ].join("");
 
 /* tables */
-const copyBtn = (d) => `<button class="cp" data-copy="${esc(d)}" title="Copy DID" aria-label="Copy DID">copy</button>`;
-const tieCount = (rows) => { const c = {}; rows.forEach((r) => c[r.rank] = (c[r.rank] || 0) + 1); return c; };
-function rankTable(rows, withBar) {
-  const ties = tieCount(rows);
-  const max = Math.max(...rows.map((r) => Math.abs(Number(r.score)) || 0), 1);
-  return rows.map((r) => `<tr class="r${r.rank}" data-did="${esc(r.did)}">
-    <td><span class="rank">${r.rank}</span>${ties[r.rank] > 1 ? `<span class="tie" title="${ties[r.rank]}-way tie">=</span>` : ""}</td>
-    <td><span class="did" title="${esc(r.did)}">${esc(short(r.did))}</span>${copyBtn(r.did)}</td>
-    <td class="num">${withBar
-      ? `<div class="bar"><i class="${Number(r.score) < 0 ? "neg" : ""}" style="width:${Math.abs(Number(r.score)) / max * 120}px"></i><span class="v ${sign(r.score)}">${esc(r.score)}</span></div>`
-      : `<span class="${sign(r.score)}">${esc(r.score)}</span>`}</td></tr>`).join("");
+function spark(trail) {
+  const v = (trail || []).map(N);
+  if (v.filter((x) => x != null).length < 2) return `<svg class="spark" width="80" height="20"></svg>`;
+  const ok = v.filter((x) => x != null), lo = Math.min(...ok), hi = Math.max(...ok), W = 80, H = 20;
+  const X = (i) => i / (v.length - 1) * W, Y = (x) => H - 2 - (x - lo) / (hi - lo || 1) * (H - 4);
+  let d = "", pen = false;
+  v.forEach((x, i) => { if (x == null) { pen = false; return; } d += `${pen ? "L" : "M"}${X(i).toFixed(1)},${Y(x).toFixed(1)}`; pen = true; });
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="var(--acc)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
-$("top").innerHTML = D.top.length ? rankTable(D.top, true) : `<tr><td colspan="3" class="empty">No scores published yet</td></tr>`;
-$("pos").innerHTML = D.positions.length ? rankTable(D.positions, false) : `<tr><td colspan="3" class="empty">No positions published yet</td></tr>`;
-
-let hsort = {k: null, dir: 1}, hshow = 25;
+const didCell = (d) => `<button class="didb" data-copy="${esc(d)}" title="${esc(d)} — click to copy">${esc(short(d))}</button>`;
+const rankBadge = (r) => `<span class="rank ${r === 1 ? "lead" : r <= 3 ? "near" : ""}">${r}</span>`;
+function rankRows(rows, withSpark) {
+  const ties = rows.reduce((m, r) => (m[r.rank] = (m[r.rank] || 0) + 1, m), {});
+  return rows.map((r) => `<tr class="${r.rank <= 3 ? "podium" : ""}" data-did="${esc(r.did)}">
+    <td>${rankBadge(r.rank)}${ties[r.rank] > 1 ? `<span class="tie" title="${ties[r.rank]}-way tie">=</span>` : ""}</td>
+    <td>${didCell(r.did)}</td>
+    <td class="num"><div class="bar">${withSpark ? spark(r.trail) : ""}<span class="v ${sgn(r.score)}">${esc(r.score)}</span></div></td></tr>`).join("");
+}
+let hs = {k: "best_score", dir: -1}, all = false;
 function drawHist() {
-  let rows = D.history.slice();
-  if (hsort.k) rows.sort((a, b) => (Number(a[hsort.k]) - Number(b[hsort.k])) * hsort.dir);
-  $("hist").innerHTML = rows.slice(0, hshow).map((h) => `<tr data-did="${esc(h.did)}">
-    <td><span class="did" title="${esc(h.did)}">${esc(short(h.did))}</span>${copyBtn(h.did)}</td>
-    <td class="num">${h.best_rank}</td><td class="num ${sign(h.best_score)}">${esc(h.best_score)}</td>
-    <td class="num">${fmt(h.sweeps)}</td><td class="num">${h.first}</td><td class="num">${h.last}</td></tr>`).join("");
-  $("more").hidden = rows.length <= hshow;
-  $("more").textContent = `Show more (${fmt(rows.length - hshow)} left)`;
-  document.querySelectorAll("th[data-k]").forEach((th) => {
+  const rows = D.history.slice();
+  if (hs.k) rows.sort((a, b) => (Number(a[hs.k]) - Number(b[hs.k])) * hs.dir);
+  const tipFor = (n) => sweepTime.get(n) ? ` title="${utc(sweepTime.get(n))}"` : "";
+  $("hist").innerHTML = (all ? rows : rows.slice(0, 25)).map((h) => `<tr data-did="${esc(h.did)}">
+    <td>${didCell(h.did)}</td><td class="num">${h.best_rank}</td>
+    <td class="num">${N(h.best_score) === 0 ? `<span class="zero" title="Only ever published at 0 (before scores moved)">—</span>` : `<span class="${sgn(h.best_score)}">${esc(h.best_score)}</span>`}</td>
+    <td class="num">${fmt(h.sweeps)}</td><td class="num"${tipFor(h.first)}>${h.first}</td><td class="num"${tipFor(h.last)}>${h.last}</td></tr>`).join("");
+  $("more").hidden = all || rows.length <= 25;
+  $("more").textContent = `Show all ${fmt(rows.length)}`;
+  document.querySelectorAll("th.sort").forEach((th) => {
     th.querySelector(".arr")?.remove();
-    if (th.dataset.k === hsort.k) th.insertAdjacentHTML("beforeend", ` <span class="arr">${hsort.dir > 0 ? "↑" : "↓"}</span>`);
+    th.setAttribute("aria-sort", th.dataset.k === hs.k ? (hs.dir > 0 ? "ascending" : "descending") : "none");
+    if (th.dataset.k === hs.k) th.insertAdjacentHTML("beforeend", `<span class="arr"> ${hs.dir > 0 ? "↑" : "↓"}</span>`);
   });
-  mark();
+  mark_();
 }
-$("hist-n").textContent = `${fmt(D.history.length)} DIDs ever in the top 25`;
-$("more").onclick = () => { hshow += 50; drawHist(); };
-document.querySelectorAll("th[data-k]").forEach((th) => th.onclick = () => {
-  const k = th.dataset.k;
-  hsort = {k, dir: hsort.k === k ? -hsort.dir : (k === "best_rank" || k === "first" ? 1 : -1)};
+function drawTables() {
+  $("top").innerHTML = D.top.length ? rankRows(D.top, true) : `<tr><td colspan="3" class="empty">No scores published yet</td></tr>`;
+  const P = D.positions, allTied = P.length > 1 && P.every((r) => r.score === P[0].score);
+  $("pos-note").textContent = allTied ? `All ${P.length} tied at ${P[0].score}` : "value as published";
+  $("pos").innerHTML = !P.length ? `<tr><td colspan="3" class="empty">No positions published yet</td></tr>`
+    : allTied ? P.map((r) => `<tr data-did="${esc(r.did)}"><td><span class="tie">=</span></td><td>${didCell(r.did)}</td><td class="num muted">${esc(r.score)}</td></tr>`).join("")
+    : rankRows(P, false);
   drawHist();
+}
+$("hist-n").textContent = `${fmt(D.history.length)} DIDs`;
+$("more").onclick = () => { all = true; requestAnimationFrame(drawHist); };
+document.querySelectorAll("th.sort").forEach((th) => th.onclick = () => {
+  const k = th.dataset.k;
+  hs = {k, dir: hs.k === k ? -hs.dir : (k === "best_rank" || k === "first" ? 1 : -1)};
+  requestAnimationFrame(drawHist);
 });
-
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-copy]");
-  if (!b) return;
-  navigator.clipboard?.writeText(b.dataset.copy).then(() => { const t = b.textContent; b.textContent = "copied"; setTimeout(() => b.textContent = t, 1200); });
-});
+narrow.addEventListener?.("change", drawTables);
 
 /* charts */
-function chart(id, key, {bars = false, height = 120, fill = true, digits = 0, valueId} = {}) {
-  const el = $(id);
-  let pts = D.series.filter((p) => p[key] != null && !isNaN(Number(p[key]))).map((p) => [p.n, Number(p[key])]);
-  if (bars) pts = pts.slice(-120);
-  if (valueId) $(valueId).textContent = pts.length ? fmt(pts.at(-1)[1], digits) : "–";
+function ticks(lo, hi, n = 4) {
+  const span = hi - lo || Math.abs(hi) || 1, mag = 10 ** Math.floor(Math.log10(span / n));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || 10 * mag;
+  const t = []; for (let v = Math.floor(lo / step) * step; v <= hi + step * 1e-9; v += step) t.push(+v.toFixed(10));
+  if (t.at(-1) < hi) t.push(+(t.at(-1) + step).toFixed(10));
+  return t;
+}
+function chart(id, key, {bars = false, digits = 0, last = null} = {}) {
+  const el = $(id), val = $("v" + id.slice(1)), note = $("n" + id.slice(1));
+  let pts = D.series.filter((p) => N(p[key]) != null).map((p) => [p.n, N(p[key])]);
+  if (last) pts = pts.slice(-last);
+  if (val) val.textContent = pts.length ? fmt(pts.at(-1)[1], digits) : "–";
   if (pts.length < 2) { el.innerHTML = `<div class="empty">Not enough data yet</div>`; return; }
-  const W = 600, H = height, PL = 2, PR = 2, PT = 8, PB = 18;
+  const W = el.clientWidth || 500, H = el.clientHeight || 170, PL = 48, PR = 6, PT = 6, PB = 20;
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
-  let y0 = Math.min(...ys), y1 = Math.max(...ys);
-  if (bars) y0 = Math.min(0, y0);
-  const pad = (y1 - y0) * 0.08 || 1; if (!bars) y0 -= pad; y1 += pad;
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  if (bars) lo = Math.min(0, lo);
+  const yt = ticks(lo, hi); lo = yt[0]; hi = yt.at(-1);
   const X = (v) => PL + (v - x0) / (x1 - x0 || 1) * (W - PL - PR);
-  const Y = (v) => PT + (1 - (v - y0) / (y1 - y0 || 1)) * (H - PT - PB);
-  const gid = "g" + id;
+  const Y = (v) => PT + (1 - (v - lo) / (hi - lo || 1)) * (H - PT - PB);
+  const yd = Math.max(0, -Math.floor(Math.log10((hi - lo) / 4 || 1)));
+  let g = yt.map((v) => `<line x1="${PL}" x2="${W - PR}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${PL - 8}" y="${Y(v) + 3}" text-anchor="end">${Math.abs(v) >= 1e5 ? Number(v).toLocaleString("en-US", {notation: "compact", maximumFractionDigits: 1}) : fmt(v, Math.min(yd, 3))}</text>`).join("");
+  g += ticks(x0, x1, 4).filter((v) => v >= x0 && v <= x1).map((v) => `<text x="${X(v)}" y="${H - 4}" text-anchor="middle">${v}</text>`).join("");
   let body = "";
-  const grid = [0.25, 0.5, 0.75].map((f) => `<line x1="0" x2="${W}" y1="${PT + f * (H - PT - PB)}" y2="${PT + f * (H - PT - PB)}" stroke="var(--line)" stroke-dasharray="2 4"/>`).join("");
+  const notes = [];
   if (bars) {
-    const bw = Math.max(1, (W - PL - PR) / pts.length - 1);
-    body = pts.map(([x, y]) => `<rect x="${(X(x) - bw / 2).toFixed(1)}" y="${Y(Math.max(y, 0)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(Y(y) - Y(0))).toFixed(1)}" rx="${Math.min(2, bw / 2)}" fill="var(--acc)" opacity=".8"/>`).join("");
+    const bw = Math.max(1, (W - PL - PR) / pts.length - 2);
+    const avg = ys.reduce((a, b) => a + b, 0) / ys.length;
+    body = pts.map(([x, y]) => `<rect x="${X(x) - bw / 2}" y="${Y(Math.max(y, 0))}" width="${bw}" height="${Math.max(1, Math.abs(Y(y) - Y(0)))}" rx="${Math.min(2, bw / 2)}" fill="var(--acc)"/>`).join("")
+      + `<line x1="${PL}" x2="${W - PR}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--mut)"/>`
+      + `<line x1="${PL}" x2="${W - PR}" y1="${Y(avg)}" y2="${Y(avg)}" stroke="var(--fg)" stroke-dasharray="4 4" opacity=".55"/>`;
+    notes.push(`${key === "mints" ? "mints" : "trades settled"} · last ${pts.length} sweeps · dashed = average ${fmt(avg, 0)}`);
   } else {
     const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join("");
-    body = (fill ? `<path d="${d}L${X(x1).toFixed(1)},${H - PB}L${X(x0).toFixed(1)},${H - PB}Z" fill="url(#${gid})"/>` : "") +
-      `<path d="${d}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+    body = `<path d="${d}L${X(x1)},${Y(lo)}L${X(x0)},${Y(lo)}Z" fill="var(--fill)"/><path d="${d}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round"/>`;
+    const steps = pts.slice(1).map((p, i) => Math.abs(p[1] - pts[i][1]));
+    const mean = steps.reduce((a, b) => a + b, 0) / steps.length;
+    const sd = Math.sqrt(steps.reduce((a, b) => a + (b - mean) ** 2, 0) / steps.length);
+    const out = sd > 0 ? pts.slice(1).filter((p, i) => steps[i] > mean + 4 * sd) : [];
+    body += out.map(([x, y]) => `<circle cx="${X(x)}" cy="${Y(y)}" r="4" fill="var(--card)" stroke="var(--neg)" stroke-width="2"/>`).join("");
+    if (out.length) notes.push(`${out.length} outlier sweep${out.length > 1 ? "s" : ""} circled (jump > 4σ): ${out.slice(0, 5).map((p) => p[0]).join(", ")}${out.length > 5 ? "…" : ""}`);
   }
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px" role="img" aria-label="${key} by sweep">
-    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".28"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs>
-    ${grid}${body}
-    <line class="xh" x1="0" x2="0" y1="${PT}" y2="${H - PB}" stroke="var(--fg2)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0"/>
-  </svg>
-  <div style="display:flex;justify-content:space-between;color:var(--mut);font:11px var(--mono);margin-top:-14px"><span>sweep ${x0}</span><span>${fmt(y0 + (bars ? 0 : pad), digits)} – ${fmt(y1 - pad, digits)}</span><span>sweep ${x1}</span></div>
-  <div class="tip"></div><i class="dot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:var(--acc);border:2px solid var(--card);transform:translate(-50%,-50%);opacity:0;pointer-events:none"></i>`;
-  const svg = el.querySelector("svg"), xh = el.querySelector(".xh"), tip = el.querySelector(".tip"), dot = el.querySelector(".dot");
-  const move = (cx) => {
-    const r = svg.getBoundingClientRect();
-    const vx = (cx - r.left) / r.width * W;
-    let best = pts[0];
-    for (const p of pts) if (Math.abs(X(p[0]) - vx) < Math.abs(X(best[0]) - vx)) best = p;
-    const px = X(best[0]) / W * r.width, py = Y(best[1]) / H * r.height;
-    xh.setAttribute("x1", X(best[0])); xh.setAttribute("x2", X(best[0])); xh.setAttribute("opacity", ".35");
-    tip.innerHTML = `<span>sweep ${best[0]}</span> &nbsp;${fmt(best[1], digits)}`;
-    tip.style.left = Math.min(Math.max(px, 60), r.width - 60) + "px"; tip.style.top = py + "px"; tip.style.opacity = 1;
-    if (!bars) { dot.style.left = px + "px"; dot.style.top = py + "px"; dot.style.opacity = 1; }
+  if (note) note.textContent = notes.join(" ");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(key)} by sweep">${g}${body}
+    <line class="xh" y1="${PT}" y2="${H - PB}" stroke="var(--mut)" opacity="0"/><circle class="dot" r="4.5" fill="var(--acc)" stroke="var(--card)" stroke-width="2" opacity="0"/>
+    <rect x="${PL}" y="0" width="${W - PL - PR}" height="${H}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg = el.querySelector("svg"), xh = el.querySelector(".xh"), dot = el.querySelector(".dot"), tip = el.querySelector(".tip");
+  const show = (cx) => {
+    const r = svg.getBoundingClientRect(), vx = (cx - r.left) / r.width * W;
+    let b = pts[0]; for (const p of pts) if (Math.abs(X(p[0]) - vx) < Math.abs(X(b[0]) - vx)) b = p;
+    xh.setAttribute("x1", X(b[0])); xh.setAttribute("x2", X(b[0])); xh.setAttribute("opacity", 1);
+    if (!bars) { dot.setAttribute("cx", X(b[0])); dot.setAttribute("cy", Y(b[1])); dot.setAttribute("opacity", 1); }
+    const t = sweepTime.get(b[0]);
+    tip.innerHTML = `sweep ${b[0]} · <b>${fmt(b[1], digits)}</b>${t ? `<br><span style="opacity:.7">${utc(t)}</span>` : ""}`;
+    tip.style.left = Math.min(Math.max(X(b[0]), 80), W - 80) + "px";
+    tip.style.top = Y(bars ? Math.max(b[1], 0) : b[1]) + "px"; tip.style.opacity = 1;
   };
-  const hide = () => { tip.style.opacity = 0; dot.style.opacity = 0; xh.setAttribute("opacity", "0"); };
-  svg.addEventListener("pointermove", (e) => move(e.clientX));
+  const hide = () => { xh.setAttribute("opacity", 0); dot.setAttribute("opacity", 0); tip.style.opacity = 0; };
+  svg.addEventListener("pointermove", (e) => show(e.clientX));
+  svg.addEventListener("pointerdown", (e) => show(e.clientX));
   svg.addEventListener("pointerleave", hide);
 }
-chart("hero-chart", "px", {height: 150, digits: 2});
-chart("c-top", "top_score", {digits: 2, valueId: "v-top"});
-chart("c-own", "owners", {valueId: "v-own"});
-chart("c-set", "settled", {bars: true, valueId: "v-set"});
-chart("c-mint", "mints", {bars: true, valueId: "v-mint"});
+let flow = "settled";
+document.querySelectorAll("[data-flow]").forEach((b) => b.onclick = () => {
+  flow = b.dataset.flow;
+  document.querySelectorAll("[data-flow]").forEach((x) => x.setAttribute("aria-selected", x === b));
+  chart("c-flow", flow, {bars: true, last: 60});
+});
+function drawCharts() {
+  chart("c-px", "px", {digits: 2});
+  chart("c-top", "top_score", {digits: 2});
+  chart("c-own", "owners");
+  chart("c-flow", flow, {bars: true, last: 60});
+}
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawCharts, 150); });
 
 /* search */
 const hist = new Map(D.history.map((h) => [h.did, h]));
-const everyone = [...new Set([...D.history.map((h) => h.did), ...D.top.map((r) => r.did), ...D.positions.map((r) => r.did)])];
-let q = "";
-function mark() {
+const everyone = [...new Set([...D.top.map((r) => r.did), ...D.positions.map((r) => r.did), ...D.history.map((h) => h.did)])];
+let hit = "";
+function mark_() {
   document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
-  if (q) document.querySelectorAll("tr[data-did]").forEach((t) => { if (t.dataset.did === q) t.classList.add("hit"); });
+  if (hit) document.querySelectorAll("tr[data-did]").forEach((t) => t.dataset.did === hit && t.classList.add("hit"));
 }
-function detail(did) {
+function norm(s) {
+  s = s.trim().replace(/\s+/g, "");
+  try { s = new URL(s).searchParams.get("did") || s; } catch (e) {}
+  if (/^z6Mk/.test(s) && s.length > 40) s = "did:key:" + s;
+  return s;
+}
+function card(did) {
   const now = D.top.find((r) => r.did === did), p = D.positions.find((r) => r.did === did), h = hist.get(did);
-  const pills = [];
-  if (now) pills.push(`<span class="pill">Rank now <b>#${now.rank}</b></span><span class="pill">Score <b class="${sign(now.score)}">${esc(now.score)}</b></span>`);
-  else pills.push(`<span class="pill">Rank now <b>outside top 25</b></span>`);
-  if (p) pills.push(`<span class="pill">Top 10 position <b>#${p.rank} · ${esc(p.score)}</b></span>`);
-  if (h) pills.push(`<span class="pill">Best rank <b>#${h.best_rank}</b></span><span class="pill">Best score <b class="${sign(h.best_score)}">${esc(h.best_score)}</b></span><span class="pill">In top 25 <b>${fmt(h.sweeps)} sweeps</b> (${h.first}–${h.last})</span>`);
-  return `<div class="res"><span class="did">${esc(did)}</span>${pills.join("")}</div>`;
+  const badge = now ? `<span class="rank big ${now.rank === 1 ? "lead" : now.rank <= 3 ? "near" : ""}">${now.rank === 1 ? ICON.cup : ""}${now.rank}</span>` : `<span class="rank big" title="Outside the published top 25">–</span>`;
+  const f = [`<div><dt>Rank now</dt><dd>${now ? "#" + now.rank : "outside top 25"}</dd></div>`];
+  if (h) f.push(`<div><dt>Best rank</dt><dd>#${h.best_rank}</dd></div>`, `<div><dt>Best score</dt><dd class="${sgn(h.best_score)}">${esc(h.best_score)}</dd></div>`,
+    `<div><dt>In top 25</dt><dd>${fmt(h.sweeps)} sweeps</dd></div>`, `<div><dt>First / last</dt><dd>${h.first} / ${h.last}</dd></div>`);
+  if (p) f.push(`<div><dt>Top 10 position</dt><dd>#${p.rank} · ${esc(p.score)}</dd></div>`);
+  return `<div class="card res">${badge}<span class="did">${esc(did)}</span><span class="sc ${now ? sgn(now.score) : ""}">${now ? esc(now.score) : ""}</span>
+    <button class="icon" data-copy="${esc(did)}" aria-label="Copy DID" title="Copy DID">${ICON.copy}</button><dl>${f.join("")}</dl></div>`;
 }
-$("q").addEventListener("input", (e) => {
-  const raw = e.target.value.trim();
-  q = everyone.includes(raw) ? raw : "";
-  mark();
-  if (!raw) { $("found").innerHTML = ""; return; }
-  if (q) { $("found").innerHTML = detail(q); document.querySelector("tr.hit")?.scrollIntoView({block: "nearest", behavior: "smooth"}); return; }
-  const m = raw.length >= 4 ? everyone.filter((d) => d.toLowerCase().includes(raw.toLowerCase())).slice(0, 6) : [];
-  if (m.length === 1) { q = m[0]; mark(); $("found").innerHTML = detail(q); return; }
-  if (m.length) {
-    $("found").innerHTML = `<div class="res miss">${m.length === 6 ? "Several" : m.length} matches: ${m.map((d) => `<button data-pick="${esc(d)}">${esc(short(d))}</button>`).join(" ")}</div>`;
+function setUrl(did) {
+  try { const u = new URL(location.href); did ? u.searchParams.set("did", did.replace(/^did:key:/, "")) : u.searchParams.delete("did"); history.replaceState(null, "", u); } catch (e) {}
+}
+function runSearch(scroll) {
+  const raw = norm($("q").value);
+  hit = "";
+  if (!raw) { $("found").innerHTML = ""; setUrl(""); mark_(); return; }
+  const m = everyone.includes(raw) ? [raw] : raw.length >= 4 ? everyone.filter((d) => d.toLowerCase().includes(raw.toLowerCase())) : [];
+  if (m.length === 1) {
+    hit = m[0]; mark_(); setUrl(hit); $("found").innerHTML = card(hit);
+    if (scroll) document.querySelector("tr.hit")?.scrollIntoView({block: "center"});
     return;
   }
-  $("found").innerHTML = `<div class="res miss">Not in the referee's published top 25 at any sweep. The referee publishes no per-DID balances, so a score outside the top 25 can't be read from the rooms.</div>`;
-});
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-pick]");
-  if (b) { $("q").value = b.dataset.pick; $("q").dispatchEvent(new Event("input")); }
-});
+  mark_(); setUrl("");
+  $("found").innerHTML = m.length
+    ? `<div class="empty">${fmt(m.length)} matches — keep typing or pick: ${m.slice(0, 6).map((d) => `<button class="pick" data-pick="${esc(d)}">${esc(short(d))}</button>`).join("")}</div>`
+    : `<div class="empty">No match in the published set (top 25 and top 10 at any sweep).</div>`;
+}
+let deb; $("q").addEventListener("input", () => { clearTimeout(deb); deb = setTimeout(runSearch, 120); });
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") { clearTimeout(deb); runSearch(true); } });
 
-drawHist();
+/* nav highlight */
+const io = new IntersectionObserver((es) => es.forEach((e) => {
+  if (e.isIntersecting) document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+}), {rootMargin: "-40% 0px -55% 0px"});
+["overview", "search", "charts", "board"].forEach((id) => io.observe($(id)));
 
+/* footer */
 const reasons = Object.entries(D.reasons_sample).map(([k, v]) => `${esc(k)} ${fmt(v)}`).join(", ");
-$("foot").innerHTML = `
-  <div><b>Unofficial.</b> Built only from posts signed by the referee <code>${esc(D.referee)}</code> in
-  <code>d-close1-pnl</code>, <code>-positions</code>, <code>-state</code>, <code>-price</code> and <code>-flow</code> on technocore.chat, refreshed every 30 minutes.</div>
-  <div>The referee publishes the top 25 scores and top 10 positions each sweep; nothing below that is public. Outcomes shown in the flow room (a sample): ${reasons || "none"}.</div>
-  <div>Rules: <a href="https://github.com/flop-labs/technocore-close-call-challenge">flop-labs/technocore-close-call-challenge</a> · Data: <a href="data.json">data.json</a></div>`;
+$("foot").innerHTML = `<dl>
+  <dt>Source</dt><dd>Only posts signed by the referee <code>${esc(D.referee)}</code> in <code>d-close1-pnl</code>, <code>-positions</code>, <code>-state</code>, <code>-price</code> and <code>-flow</code> on technocore.chat. Posts from any other key are ignored.</dd>
+  <dt>Refresh</dt><dd>Rebuilt every 30 minutes from the latest referee sweep. Last build ${utc(built)}.</dd>
+  <dt>Score</dt><dd>score = POLF − 10,000, marked at the reference price. Final scores use the last xyz:NVDA trade before 10:00 UTC on 4 October 2026.</dd>
+  <dt>Ties</dt><dd>Equal scores share a rank and the next rank skips (1, 2=, 2=, 4). This page does not break ties; the contest rules do.</dd>
+  <dt>Scope</dt><dd>Published snapshot, not a live order book. The referee publishes only the top 25 scores and top 10 positions each sweep, so nothing below that is shown.${reasons ? ` Flow room outcomes (sample): ${reasons}.` : ""}</dd>
+</dl>
+<div><b>Unofficial.</b> Rules: <a href="https://github.com/flop-labs/technocore-close-call-challenge">flop-labs/technocore-close-call-challenge</a> · Raw data: <a href="data.json">data.json</a></div>`;
+
+drawTables();
+drawCharts();
+const pre = new URLSearchParams(location.search).get("did");
+if (pre) { $("q").value = pre; runSearch(true); }
 </script>
 </body>
 </html>
