@@ -148,14 +148,6 @@ tbody tr td{transition:background .12s}
 tbody tr:hover td{background:var(--hover)}
 tr.hit td{background:var(--acc-soft)!important}
 tr.podium td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
-tr.grp td{background:var(--card2);padding-top:9px;padding-bottom:9px}
-tr.grp .gl{font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
-tr.grp .gl b{color:var(--acc)}
-tr.mem td:first-child,tr.grp td:first-child{box-shadow:inset 3px 0 0 var(--line2)}
-tr.g-pod td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
-tr.mem td.ind{padding-left:22px}
-tr.showmore td{padding:6px 12px}
-.sm{all:unset;cursor:pointer;color:var(--acc);font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
 tr[hidden]{display:none}
 .info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line2);color:var(--mut);font:700 10px/1 var(--mono);cursor:help;position:relative;vertical-align:1px;margin-left:4px;text-transform:none;letter-spacing:0}
 .info:hover,.info:focus{color:var(--acc);border-color:var(--acc)}
@@ -174,7 +166,6 @@ tr[hidden]{display:none}
 .didb:hover{color:var(--acc)}
 .bar{display:flex;align-items:center;justify-content:flex-end;gap:12px}
 .bar .v{min-width:64px;text-align:right;font-family:var(--mono)}
-.spark{display:block}
 .zero{color:var(--mut)}
 th.sort{cursor:pointer;user-select:none}
 th.sort:hover{color:var(--fg)}
@@ -205,7 +196,7 @@ footer code{font-size:12px;word-break:break-all;color:var(--fg2)}
   .kpi b{font-size:19px}
   th,td{padding:9px 8px;font-size:13px}
   .didb{font-size:12px}
-  .spark,.badge{display:none}
+  .badge{display:none}
   .bar .v{min-width:0}
   .res{grid-template-columns:auto minmax(0,1fr) auto}
   .res .sc{display:none}
@@ -296,7 +287,7 @@ try { const t = localStorage.getItem("cc-theme"); if (t === "light" || t === "da
     <div class="grid">
       <div class="card">
         <div class="head"><h3>Published top 25</h3><span class="hr"><span class="label" id="top-note"></span><button class="dl" data-csv="top">CSV</button></span></div>
-        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
+        <div class="scroll"><table><thead><tr><th scope="col">#</th><th scope="col">DID</th><th scope="col" class="num">Since sweep</th><th scope="col" class="num">Score</th></tr></thead><tbody id="top"></tbody></table></div>
       </div>
       <div class="card">
         <div class="head"><h3>Top 10 positions</h3><span class="label" id="pos-note">unit as posted by the referee</span></div>
@@ -415,52 +406,33 @@ $("kpis").innerHTML = [
 ].join("");
 
 /* tables */
-function spark(trail) {
-  const v = (trail || []).map(N);
-  if (v.filter((x) => x != null).length < 2) return `<svg class="spark" width="80" height="20"></svg>`;
-  const ok = v.filter((x) => x != null), lo = Math.min(...ok), hi = Math.max(...ok), W = 80, H = 20;
-  const X = (i) => i / (v.length - 1) * W, Y = (x) => H - 2 - (x - lo) / (hi - lo || 1) * (H - 4);
-  let d = "", pen = false;
-  v.forEach((x, i) => { if (x == null) { pen = false; return; } d += `${pen ? "L" : "M"}${X(i).toFixed(1)},${Y(x).toFixed(1)}`; pen = true; });
-  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="var(--acc)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-}
 const didCell = (d) => `<button class="didb" data-copy="${esc(d)}" title="${esc(d)} — click to copy">${esc(short(d))}</button>`;
 const rankBadge = (r) => `<span class="rank ${r === 1 ? "lead" : r <= 3 ? "near" : ""}">${r}</span>`;
-function rankRows(rows, withSpark) {
+function rankRows(rows) {
   const ties = rows.reduce((m, r) => (m[r.rank] = (m[r.rank] || 0) + 1, m), {});
   return rows.map((r) => `<tr class="${r.rank <= 3 ? "podium" : ""}" data-did="${esc(r.did)}">
     <td>${rankBadge(r.rank)}${ties[r.rank] > 1 ? `<span class="tie" title="${ties[r.rank]}-way tie">=</span>` : ""}</td>
     <td>${didCell(r.did)}</td>
-    <td class="num"><div class="bar">${withSpark ? spark(r.trail) : ""}<span class="v ${sgn(r.score)}">${esc(r.score)}</span></div></td></tr>`).join("");
+    <td class="num"><span class="${sgn(r.score)}">${esc(r.score)}</span></td></tr>`).join("");
 }
-/* Top 25: equal scores are drawn as one labelled group instead of repeated ranks */
-const OPEN = 6;
-function groupRows(rows) {
-  const groups = [];
-  rows.forEach((r) => { const g = groups.at(-1); g && g.rank === r.rank ? g.rows.push(r) : groups.push({rank: r.rank, score: r.score, rows: [r]}); });
-  const tieGroups = groups.filter((g) => g.rows.length > 1).length;
-  $("top-note").textContent = `${rows.length} keys · ${groups.length} ranks${tieGroups ? ` · ${tieGroups} tie group${tieGroups > 1 ? "s" : ""}` : ""}`;
-  return groups.map((g, gi) => {
-    const pod = g.rank <= 3 ? " g-pod" : "";
-    if (g.rows.length === 1) {
-      const r = g.rows[0];
-      return `<tr class="${g.rank <= 3 ? "podium" : ""}" data-did="${esc(r.did)}"><td>${rankBadge(r.rank)}</td><td>${didCell(r.did)}</td>
-        <td class="num"><div class="bar">${spark(r.trail)}<span class="v ${sgn(r.score)}">${esc(r.score)}</span></div></td></tr>`;
-    }
-    const hideFrom = g.rows.length >= 8 ? OPEN : Infinity;
-    const head = `<tr class="grp${pod}"><td>${rankBadge(g.rank)}</td>
-      <td class="gl">Tie · rank <b>${g.rank}</b> · ${fmt(g.rows.length)} keys</td>
-      <td class="num"><div class="bar">${spark(g.rows[0].trail)}<span class="v ${sgn(g.score)}">${esc(g.score)}</span></div></td></tr>`;
-    const mem = g.rows.map((r, i) => `<tr class="mem${pod}" data-did="${esc(r.did)}" data-g="${gi}"${i >= hideFrom ? " hidden" : ""}>
-      <td></td><td class="ind">${didCell(r.did)}</td><td class="num muted" style="font-size:12px">=</td></tr>`).join("");
-    const more = g.rows.length > hideFrom ? `<tr class="mem showmore${pod}" data-more="${gi}"><td></td><td colspan="2"><button class="sm" data-open="${gi}">Show ${g.rows.length - hideFrom} more</button></td></tr>` : "";
-    return head + mem + more;
+/* Top 25: one row per key. Equal scores keep their order from build.py:
+   whoever reached the score first comes first. */
+function flatRows(rows) {
+  const ties = rows.reduce((m, r) => (m[r.rank] = (m[r.rank] || 0) + 1, m), {});
+  $("top-note").textContent = `${rows.length} keys · ties: first to reach the score ranks higher`;
+  return rows.map((r, i) => {
+    const pos = r.pos ?? i + 1, t = sweepTime.get(r.since);
+    const tie = ties[r.rank] > 1 ? ` title="Same score as ${ties[r.rank] - 1} other key${ties[r.rank] > 2 ? "s" : ""}; ordered by who reached it first"` : "";
+    return `<tr class="${pos <= 3 ? "podium" : ""}" data-did="${esc(r.did)}">
+      <td>${rankBadge(pos)}</td><td>${didCell(r.did)}</td>
+      <td class="num muted"${t ? ` title="Reached this score in sweep ${r.since}, ${utc(t)}"` : ""}>${r.since ?? "–"}</td>
+      <td class="num"${tie}><span class="${sgn(r.score)}">${esc(r.score)}</span></td></tr>`;
   }).join("");
 }
 function csv(kind) {
   const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const [cols, rows] = kind === "top"
-    ? [["rank", "did", "score"], D.top.map((r) => [r.rank, r.did, r.score])]
+    ? [["position", "did", "score", "since_sweep"], D.top.map((r, i) => [r.pos ?? i + 1, r.did, r.score, r.since ?? ""])]
     : [["did", "best_rank", "best_score", "sweeps", "first", "last"], D.history.map((h) => [h.did, h.best_rank, h.best_score, h.sweeps, h.first, h.last])];
   const body = [cols, ...rows].map((r) => r.map(q).join(",")).join("\n");
   const a = document.createElement("a");
@@ -470,11 +442,6 @@ function csv(kind) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 document.addEventListener("click", (e) => { const b = e.target.closest("[data-csv]"); if (b) csv(b.dataset.csv); });
-function openGroup(gi) {
-  document.querySelectorAll(`#top tr[data-g="${gi}"]`).forEach((t) => t.hidden = false);
-  document.querySelector(`#top tr[data-more="${gi}"]`)?.remove();
-}
-document.addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (b) openGroup(b.dataset.open); });
 
 let hs = {k: "best_score", dir: -1}, all = false;
 function drawHist() {
@@ -495,12 +462,12 @@ function drawHist() {
   mark_();
 }
 function drawTables() {
-  $("top").innerHTML = D.top.length ? groupRows(D.top) : `<tr><td colspan="3" class="empty">No scores published yet</td></tr>`;
+  $("top").innerHTML = D.top.length ? flatRows(D.top) : `<tr><td colspan="4" class="empty">No scores published yet</td></tr>`;
   const P = D.positions, allTied = P.length > 1 && P.every((r) => r.score === P[0].score);
   $("pos-note").textContent = allTied ? `All ${P.length} tied at ${P[0].score}` : "unit as posted by the referee";
   $("pos").innerHTML = !P.length ? `<tr><td colspan="3" class="empty">No positions published yet</td></tr>`
     : allTied ? P.map((r) => `<tr data-did="${esc(r.did)}"><td><span class="tie">=</span></td><td>${didCell(r.did)}</td><td class="num muted">${esc(r.score)}</td></tr>`).join("")
-    : rankRows(P, false);
+    : rankRows(P);
   drawHist();
 }
 $("hist-n").textContent = `${fmt(D.history.length)} DIDs`;
@@ -606,7 +573,6 @@ function mark_() {
   document.querySelectorAll("tr.hit").forEach((t) => t.classList.remove("hit"));
   if (hit) document.querySelectorAll("tr[data-did]").forEach((t) => {
     if (t.dataset.did !== hit) return;
-    if (t.hidden && t.dataset.g != null) openGroup(t.dataset.g);
     t.classList.add("hit");
   });
 }
@@ -618,8 +584,9 @@ function norm(s) {
 }
 function card(did) {
   const now = D.top.find((r) => r.did === did), p = D.positions.find((r) => r.did === did), h = hist.get(did);
-  const badge = now ? `<span class="rank big ${now.rank === 1 ? "lead" : now.rank <= 3 ? "near" : ""}">${now.rank === 1 ? ICON.cup : ""}${now.rank}</span>` : `<span class="rank big" title="Outside the published top 25">–</span>`;
-  const f = [`<div><dt>Rank now</dt><dd>${now ? "#" + now.rank : "outside top 25"}</dd></div>`];
+  const pos = now ? (now.pos ?? D.top.indexOf(now) + 1) : null;
+  const badge = now ? `<span class="rank big ${pos === 1 ? "lead" : pos <= 3 ? "near" : ""}">${pos === 1 ? ICON.cup : ""}${pos}</span>` : `<span class="rank big" title="Outside the published top 25">–</span>`;
+  const f = [`<div><dt>Position now</dt><dd>${now ? "#" + pos : "outside top 25"}</dd></div>${now && now.since ? `<div><dt>Score since</dt><dd>sweep ${now.since}</dd></div>` : ""}`];
   if (h) f.push(`<div><dt>Best rank</dt><dd>#${h.best_rank}</dd></div>`, `<div><dt>Best score</dt><dd class="${sgn(h.best_score)}">${esc(h.best_score)}</dd></div>`,
     `<div><dt>In top 25</dt><dd>${fmt(h.sweeps)} sweeps</dd></div>`, `<div><dt>First / last</dt><dd>${h.first} / ${h.last}</dd></div>`);
   if (p) f.push(`<div><dt>Top 10 position</dt><dd>#${p.rank} · ${esc(p.score)}</dd></div>`);
