@@ -7,3 +7,5 @@ __pycache__/
 prereg-open.json
 spend.jsonl
 _site/
+chain-seed.txt
+chain-account.txt
