@@ -18,7 +18,7 @@ Usage:
   python agent.py                     # measure, classify, print, publish nothing
   python agent.py --publish           # ... and post the finding and the note
   python agent.py --classify 0        # skip inference entirely
-  python agent.py --backend flop      # show the session request Flop would take
+  python agent.py --backend flop      # buy the classification on Flop (CLI + chain-key.json)
 """
 
 import argparse
@@ -181,12 +181,17 @@ def classify(texts: list[str], backend: inference.Backend, limit: int,
     spent_flops = 0
     spent_cost = 0.0
     failed = ""
+    stopped = ""
 
     for start in range(0, len(sample), batch_size):
         batch = sample[start:start + batch_size]
         prompt = build_prompt(batch)
         try:
             reply, usage = backend.run(prompt, max_tokens=16 * len(batch) + 32)
+        except inference.BudgetReached as e:
+            # The day's cap: keep what was classified, say why it stopped.
+            stopped = str(e)
+            break
         except NotImplementedError as e:
             failed = str(e)
             break
@@ -211,6 +216,7 @@ def classify(texts: list[str], backend: inference.Backend, limit: int,
         "backend": backend.name,
         "model": backend.model,
         "failed": failed,
+        "stopped": stopped,
     }
 
 
@@ -258,6 +264,9 @@ def note_value(s: dict, cls: dict, spend: dict) -> str:
     spent = (
         f" Inference to date: {spend['calls']} calls, {spend['tokens']} tokens, "
         f"~{spend['flops'] / 1e12:.1f} TFLOPs est."
+        + (f" Paid on Flop: {spend['flop_calls']} sessions, "
+           f"{'at most ' if spend.get('flop_bounds') else ''}{spend['flop_cost']:g} FLOP."
+           if spend.get("flop_calls") else "")
     )
     return (
         f"Measuring Technocore traffic. Live sample {s['at']} over {s['window_s']}s: "
@@ -346,6 +355,12 @@ def main() -> None:
     if args.classify > 0:
         backend = inference.choose_backend(args.backend)
         print(f"\nbackend  : {backend.name} ({backend.model})")
+        if backend.unit == "FLOP" and args.publish:
+            # Test FLOP comes from the network faucet, once a day per address.
+            got = inference.claim_faucet()
+            state = (f"skipped, next in {got.get('next_in_h')}h" if got.get("skipped")
+                     else f"ok={got.get('ok')} {got.get('code', '')} {str(got.get('message', ''))[:120]}")
+            print(f"faucet   : {state}".rstrip())
         cls = classify(stats["new_texts"], backend, args.classify, args.batch)
         if cls["failed"]:
             # A missing model must not look like a room with nothing in it, so
@@ -358,6 +373,8 @@ def main() -> None:
                 print(f"  {label:<14} {n:>4}")
             print(f"spent    : ~{cls['flops'] / 1e12:.1f} TFLOPs est."
                   + (f", {cls['cost']} {cls['unit']}" if cls["cost"] else ""))
+        if cls.get("stopped"):
+            print(f"budget   : {cls['stopped']}")
 
     spend = inference.totals()
     print(f"ledger   : {spend['calls']} calls, {spend['tokens']} tokens, "

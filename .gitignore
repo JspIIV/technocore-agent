@@ -9,3 +9,7 @@ spend.jsonl
 _site/
 chain-seed.txt
 chain-account.txt
+chain-key.json
+chain-key.pass
+faucet.jsonl
+flop-receipts.jsonl
