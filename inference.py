@@ -15,6 +15,7 @@ an agent spends on inference, and a spend claim nobody can audit is worth
 nothing, so the ledger is written before the figure is ever published.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -28,6 +29,13 @@ from pathlib import Path
 HERE = Path(__file__).parent
 LEDGER = HERE / "spend.jsonl"
 FAUCET_LOG = HERE / "faucet.jsonl"
+TESTNET_FAUCET = "https://faucet.flop.network"
+CLAIM_PATH = "/v1/testnet/agent-claims"
+
+# Seconds to wait before asking a busy RPC again, and before asking the faucet
+# whether a claim it has included is final.
+RPC_WAITS = (5, 20)
+FINAL_WAITS = (20, 40)
 
 # A forward pass costs about two floating-point operations per parameter per
 # token. It is an estimate, not a measurement, and it is labelled as one
@@ -242,7 +250,7 @@ class FlopCli:
     def __init__(self, network: str = "", package: str = "", keystore: str = "",
                  password_file: str = "", timeout: int = 0, runner=None) -> None:
         self.network = network or os.environ.get("FLOP_NETWORK", "testnet")
-        self.package = package or os.environ.get("FLOP_CLI", "@flop-labs/cli@0.8.1")
+        self.package = package or os.environ.get("FLOP_CLI", "@flop-labs/cli@0.8.3")
         self.keystore = Path(keystore or os.environ.get("FLOP_KEYSTORE", "") or HERE / "chain-key.json")
         self.password_file = Path(password_file or os.environ.get("FLOP_KEY_PASSWORD_FILE", "")
                                   or HERE / "chain-key.pass")
@@ -278,8 +286,14 @@ class FlopCli:
             return ""
         if not want:
             return f"FLOP_GENESIS is not set, so {self.network} spending is off"
-        rpc = self.call("network", "status").get("rpc") or {}
-        got = str(rpc.get("genesis_hash") or "").lower()
+        got = ""
+        for wait in (0, *RPC_WAITS):
+            # Only silence is worth asking about again; a wrong chain is an answer.
+            time.sleep(wait)
+            rpc = self.call("network", "status").get("rpc") or {}
+            got = str(rpc.get("genesis_hash") or "").lower()
+            if got:
+                break
         if got != want:
             return f"RPC genesis is {got or 'unreadable'}, expected {want}"
         return ""
@@ -575,13 +589,116 @@ class FlopGatewayBackend(OpenAICompatBackend):
         return reply, usage
 
 
+def http_json(url: str, payload: dict | None = None, timeout: int = 60) -> tuple[int, dict]:
+    """(status, JSON body). Status 0 means no answer came back, so the outcome is unknown."""
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={
+        "Content-Type": "application/json", "User-Agent": "flop-agent/1"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            status, raw = res.status, res.read()
+    except urllib.error.HTTPError as e:
+        status, raw = e.code, e.read()
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        return 0, {"error": str(e)[:200]}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        data = {}
+    return status, data if isinstance(data, dict) else {}
+
+
+def ss58_pubkey(address: str) -> str:
+    """The public key (hex) inside an SS58 address with a one-byte prefix, checksum verified."""
+    n = 0
+    for ch in address:
+        n = n * 58 + "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".index(ch)
+    raw = n.to_bytes(35, "big")
+    check = hashlib.blake2b(b"SS58PRE" + raw[:33], digest_size=64).digest()[:2]
+    if check != raw[33:]:
+        raise ValueError("bad SS58 checksum")
+    return raw[1:33].hex()
+
+
+def sign_claim(message: str, address: str, seed_file: Path) -> str:
+    """sr25519 signature over the raw UTF-8 message, by the key that owns `address`."""
+    import flopwire  # needs sr25519; only a testnet claim does
+
+    seed = bytes.fromhex(seed_file.read_text(encoding="utf-8").strip().removeprefix("0x"))
+    pair = flopwire.keypair_from_seed(seed)
+    if pair[0].hex() != ss58_pubkey(address):
+        raise ValueError("chain-seed.txt is not the key of this address")
+    return "0x" + flopwire.sign(pair, message.encode("utf-8")).hex()
+
+
+def signed_claim(cli: FlopCli, log: Path, now: float, http=http_json, sign=sign_claim) -> dict:
+    """One signed agent claim on the testnet faucet (flop.network/llms.txt, "Get Testnet FLOP").
+
+    The nonce is written down before it is sent and reused until the claim is
+    final or refused for good: the faucet answers a repeated nonce with the same
+    transaction and never pays it twice, so an interrupted run cannot double claim.
+    A grant counts only once the faucet reports it finalized.
+    """
+    base = os.environ.get("FLOP_FAUCET", TESTNET_FAUCET).rstrip("/")
+    addr = cli.address()
+    want = os.environ.get("FLOP_GENESIS", "").strip().lower()
+    mine = [r for r in rows_of(log) if r.get("network") == cli.network and r.get("nonce")]
+    last = mine[-1] if mine else {}
+    if now < float(last.get("not_before") or 0):
+        return {"ok": True, "skipped": True,
+                "next_in_h": round((float(last["not_before"]) - now) / 3600, 1)}
+
+    status, chain = http(f"{base}/chain")
+    if chain.get("network") != cli.network or str(chain.get("genesisHash", "")).lower() != want:
+        return {"ok": False, "code": "FAUCET_CHAIN", "message": f"faucet serves another chain or none (HTTP {status})"}
+    _, limits = http(f"{base}/limits")
+    lane = limits.get("faucet") or {}
+    if lane.get("status") != "open" or (lane.get("agent") or {}).get("claimPath") != CLAIM_PATH:
+        return {"ok": False, "code": "FAUCET_CLOSED", "message": f"faucet status {lane.get('status')}"}
+
+    def write(**kw) -> None:
+        row = {"t": now, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
+               "network": cli.network, "address": addr, "nonce": nonce, "ok": False, "amount": 0.0, **kw}
+        with log.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+
+    nonce = str(last["nonce"]) if last.get("open") else str(int(now * 1000))
+    try:
+        sig = sign(f"flop-faucet-agent/v1|{want}|{addr}|{nonce}", addr, cli.keystore.parent / "chain-seed.txt")
+    except (OSError, ValueError, ImportError) as e:
+        return {"ok": False, "code": "SIGN", "message": f"{type(e).__name__}: {e}"}
+    write(code="SENDING", open=True)
+    body = {"address": addr, "nonce": nonce, "signature": sig}
+    for wait in (0, *FINAL_WAITS):
+        time.sleep(wait)
+        status, out = http(base + CLAIM_PATH, body)
+        if not (status == 200 and out.get("success") and out.get("status") == "included"):
+            break
+
+    tx = str(out.get("txHash") or "")
+    if status == 200 and out.get("success"):
+        final = out.get("status") == "finalized"
+        write(ok=final, open=not final, amount=flop_amount(out.get("amount") or 0) if final else 0.0,
+              code="FINALIZED" if final else "PENDING", tx=tx)
+        return {"ok": final, "code": "FINALIZED" if final else "PENDING",
+                "message": f"{out.get('amount')} FLOP {out.get('status')} {tx}"}
+    reason = str(out.get("reason") or out.get("error") or f"HTTP {status}")[:120]
+    # Refused for good (fix the request first) closes the nonce. Anything that may
+    # still turn out to be a payment keeps it.
+    still_open = status in (0, 200, 408, 429) or status >= 500
+    wait_s = out.get("retryAfterSeconds")
+    write(code=f"HTTP {status}", message=reason, open=still_open, tx=tx,
+          not_before=now + float(wait_s) if isinstance(wait_s, (int, float)) else 0)
+    return {"ok": False, "code": f"HTTP {status}", "message": reason}
+
+
 def claim_faucet(cli: FlopCli | None = None, log: Path = FAUCET_LOG,
                  every_hours: float = 0.0) -> dict:
     """Ask the network faucet for this agent's daily test FLOP, at most once per window.
 
-    Uses the CLI's own `faucet request`, which checks that the faucet and the
-    RPC serve the same chain first. If the faucet ever puts a human check in
-    front of the grant, this stops and says so: that step is for the operator.
+    Devnet goes through the CLI's own `faucet request`. Testnet takes a claim
+    signed by the receiving account instead. If the faucet ever puts a human check
+    in front of the grant, this stops and says so: that step is for the operator.
     """
     cli = cli or FlopCli()
     every = every_hours or float(os.environ.get("FLOP_FAUCET_EVERY_HOURS", "24"))
@@ -599,6 +716,8 @@ def claim_faucet(cli: FlopCli | None = None, log: Path = FAUCET_LOG,
     addr = cli.address()
     if not addr:
         return {"ok": False, "message": "no address in the keystore"}
+    if cli.network == "testnet":
+        return signed_claim(cli, log, now)
     out = cli.call("faucet", "request", addr)
     # "funded recently" means the grant for this window already landed: log it
     # as done so the next runs wait out the window instead of asking again.

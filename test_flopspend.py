@@ -40,7 +40,7 @@ def make_cli(tmp: Path, runner) -> inf.FlopCli:
     ks.write_text(json.dumps({"address": "5G3jwp9sAAXLtH9mVzZ96ftJDCijQCoJbScs9RqTpAcGfZzT"}))
     pw = tmp / "chain-key.pass"
     pw.write_text("not-a-real-password\n")
-    cli = inf.FlopCli(network="devnet", package="@flop-labs/cli@0.8.1", keystore=str(ks),
+    cli = inf.FlopCli(network="devnet", package="@flop-labs/cli@0.8.3", keystore=str(ks),
                       password_file=str(pw), timeout=5, runner=runner)
     cli.ready = lambda: True  # npx may be absent where the tests run
     return cli
@@ -65,6 +65,10 @@ def bal(n: float) -> tuple[str, int]:
 
 
 def main() -> int:
+    inf.RPC_WAITS = ()
+    inf.FINAL_WAITS = (0,)
+    os.environ.pop("FLOP_NETWORK", None)
+    os.environ.pop("FLOP_FAUCET", None)
     # parse_cli_json survives npm noise and reports non-JSON plainly
     d = inf.parse_cli_json('npm warn x\n{"ok": false, "code": "X", "message": "m"}\n', 1)
     check("parse: JSON inside npm noise", d.get("code") == "X" and d["ok"] is False)
@@ -178,6 +182,68 @@ def main() -> int:
               tcli([(json.dumps({"rpc": {"reachable": False}}), 0)]).genesis_error())
         check("testnet: right chain accepted",
               not tcli([(json.dumps({"rpc": {"genesis_hash": pin}}), 0)]).genesis_error())
+        inf.RPC_WAITS = (0,)
+        c = tcli([("", 1), (json.dumps({"rpc": {"genesis_hash": pin}}), 0)])
+        check("testnet: busy RPC asked again", not c.genesis_error() and len(c.runner.calls) == 2)
+        c = tcli([(json.dumps({"rpc": {"genesis_hash": "0x00"}}), 0)])
+        check("testnet: wrong chain not asked again", c.genesis_error() and len(c.runner.calls) == 1)
+        inf.RPC_WAITS = ()
+
+        # signed testnet claims
+        addr = "5G3jwp9sAAXLtH9mVzZ96ftJDCijQCoJbScs9RqTpAcGfZzT"
+        check("ss58 public key", inf.ss58_pubkey(addr)
+              == "b034b8394d283fe8334b654c61ac82394316f00a1fa721b9095c0c0477998b4c")
+        chain = (200, {"network": "testnet", "genesisHash": pin})
+        limits = (200, {"faucet": {"status": "open", "agent": {"claimPath": inf.CLAIM_PATH}}})
+        sent, signed = [], []
+
+        def claim(log, now, *answers, chain=chain, limits=limits):
+            answers = list(answers)
+
+            def http(url, payload=None, timeout=0):
+                if payload is None:
+                    return chain if url.endswith("/chain") else limits
+                sent.append(payload)
+                return answers.pop(0)
+
+            def sign(msg, a, path):
+                signed.append(msg)
+                return "0xsig"
+
+            sent.clear()
+            signed.clear()
+            return inf.signed_claim(tcli([]), log, now, http=http, sign=sign)
+
+        inc = (200, {"success": True, "amount": 10, "txHash": "0x1", "status": "included"})
+        fin = (200, {"success": True, "amount": 10, "txHash": "0x1", "status": "finalized"})
+        cl = tmp / "claim1.jsonl"
+        got = claim(cl, 1000.0, inc, fin)
+        check("claim: message and body", signed == [f"flop-faucet-agent/v1|{pin}|{addr}|1000000"]
+              and sent[0] == {"address": addr, "nonce": "1000000", "signature": "0xsig"})
+        check("claim: final grant counted once", got["ok"] and sent[0] == sent[1]
+              and abs(inf.budget_left("testnet", 0, empty, cl) - (10 - inf.FEE_RESERVE)) < 1e-9)
+        cl = tmp / "claim2.jsonl"
+        got = claim(cl, 1000.0, inc, inc)
+        check("claim: included is not spendable", not got["ok"] and inf.budget_left("testnet", 0, empty, cl) < 0)
+        claim(cl, 2000.0, fin)
+        check("claim: next run reuses the nonce", sent[0]["nonce"] == "1000000"
+              and inf.budget_left("testnet", 0, empty, cl) > 9)
+        cl = tmp / "claim3.jsonl"
+        claim(cl, 1000.0, (0, {"error": "timed out"}))
+        claim(cl, 2000.0, fin)
+        check("claim: no answer keeps the nonce", sent[0]["nonce"] == "1000000")
+        cl = tmp / "claim4.jsonl"
+        claim(cl, 1000.0, (403, {"reason": "agent_spend_missing"}))
+        claim(cl, 2000.0, fin)
+        check("claim: refusal opens a new nonce", sent[0]["nonce"] == "2000000")
+        cl = tmp / "claim5.jsonl"
+        claim(cl, 1000.0, (429, {"reason": "ip_cooldown", "retryAfterSeconds": 3600}))
+        got = claim(cl, 2000.0)
+        check("claim: retry-after is obeyed", got.get("skipped") and not sent)
+        got = claim(tmp / "claim6.jsonl", 1000.0, chain=(200, {"network": "testnet", "genesisHash": "0x0"}))
+        check("claim: wrong faucet chain, nothing signed", not got["ok"] and not signed and not sent)
+        got = claim(tmp / "claim7.jsonl", 1000.0, limits=(200, {"faucet": {"status": "low_balance"}}))
+        check("claim: closed faucet, nothing signed", not got["ok"] and not signed and not sent)
         os.environ.pop("FLOP_GENESIS", None)
 
         # a failed session stops the rest of the run (escrow safety)
